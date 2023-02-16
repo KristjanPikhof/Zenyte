@@ -113,7 +113,7 @@ public class eMain extends TaskScript implements LoopingScript {
                 && ctx.equipment.populate().filter("Dragon pickaxe").population() == 1
                 && ctx.players.getLocal().getAnimation() == 6758) {
             int sleep = randomSleeping(2000, 8000);
-            status = "Using special attack " + sleep + "ms";
+            status = "Using special attack in " + sleep + "ms";
             ctx.sleep(sleep);
             if (ctx.players.getLocal().getAnimation() == 6758) {
                 ctx.combat.toggleSpecialAttack(true);
