@@ -23,13 +23,13 @@ import java.util.concurrent.ThreadLocalRandom;
 @ScriptManifest(author = "Esmaabi", category = Category.MINING,
         description = "<br>Most effective amethyst crystal mining bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br>" +
                 "<ul>" +
-                "<li>You must start <b>with pickaxe equipped</b>;</li>" +
+                "<li>You must start with pickaxe </b>equipped</b> or in <b>inventory</b>;</li>" +
                 "<li>You must start at mining guild bank near amethyst crystals;</li>" +
                 "<li>Do not zoom out <b>to maximum</b>;</li>" +
                 "<li>Dragon pickaxe special attack supported;</li>" +
-                "<li>Included random sleeping included!</li></ul>",
+                "<li>Random sleeping included!</li></ul>",
         discord = "Esmaabi#5752",
-        name = "eAmethystMinerZenyte", servers = { "Zenyte" }, version = "0.1")
+        name = "eAmethystMinerZenyte", servers = { "Zenyte" }, version = "0.2")
 
 public class eMain extends TaskScript implements LoopingScript {
 
@@ -48,6 +48,7 @@ public class eMain extends TaskScript implements LoopingScript {
     private long lastAnimation = -1;
 
     boolean specialDone = false;
+    private final int[] inventoryPickaxe = {20014, 13243, 12797, 12297, 11920, 1275, 1273, 1271, 1269, 1267, 1265};
 
     public static int randomSleeping(int minimum, int maximum) {
         return (int)(Math.random() * (maximum - minimum)) + minimum;
@@ -122,7 +123,7 @@ public class eMain extends TaskScript implements LoopingScript {
                 specialDone = true;
             } else {
                 status = "Special attack cancelled";
-                if (ctx.inventory.populate().population() == 28) {
+                if (ctx.inventory.inventoryFull()) {
                     openingBank();
                 } else {
                     specialDone = true;
@@ -134,9 +135,9 @@ public class eMain extends TaskScript implements LoopingScript {
 
         if (miningArea.containsPoint(ctx.players.getLocal().getLocation())) {
 
-            if (ctx.inventory.populate().population() == 28) {
+            if (ctx.inventory.inventoryFull()) {
                 openingBank();
-            } else if (ctx.inventory.populate().population() < 28 && !ctx.bank.bankOpen()) {
+            } else if (!ctx.inventory.inventoryFull() && !ctx.bank.bankOpen()) {
                 if (!ctx.players.getLocal().isAnimating() && (System.currentTimeMillis() > (lastAnimation + randomSleeping(1200, 4600)))) {
                     miningTask();
                 } else if (ctx.players.getLocal().isAnimating()) {
@@ -169,13 +170,14 @@ public class eMain extends TaskScript implements LoopingScript {
         }
         if (ctx.bank.bankOpen()) {
             status = "Banking";
-            if (!ctx.inventory.populate().isEmpty()) {
+            if (ctx.inventory.inventoryFull()) {
                 status = "Depositing inventory";
-                ctx.bank.depositInventory();
-                ctx.onCondition(() -> ctx.inventory.populate().isEmpty(), 5000);
+                ctx.bank.depositAllExcept(inventoryPickaxe);
+                int inventorySpaceBefore = getInventoryPopulation();
+                ctx.onCondition(() -> getInventoryPopulation() < inventorySpaceBefore, 250, 10);
             }
         }
-        if (ctx.inventory.populate().isEmpty()) {
+        if (!ctx.inventory.inventoryFull()) {
             status = "Closing bank";
             ctx.bank.closeBank();
             ctx.onCondition(() -> !ctx.bank.bankOpen(), 5000);
@@ -239,6 +241,10 @@ public class eMain extends TaskScript implements LoopingScript {
                 ctx.sleep(randomSleeping(2200, 3200));
                 break;
         }
+    }
+
+    public int getInventoryPopulation() {
+        return ctx.inventory.populate().population();
     }
 
 /*    public void takingStepsRMining() {

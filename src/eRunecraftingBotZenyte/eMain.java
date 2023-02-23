@@ -1,9 +1,9 @@
 package eRunecraftingBotZenyte;
 
 
-import net.runelite.api.coords.WorldPoint;
 import eRunecraftingBotZenyte.listeners.SkillListener;
 import eRunecraftingBotZenyte.listeners.SkillObserver;
+import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleBank;
 import simple.hooks.filters.SimpleSkills;
 import simple.hooks.scripts.Category;
@@ -29,7 +29,7 @@ import java.util.function.BooleanSupplier;
         + "Start near dense runestone for <b>Mining</b> task while <b>Zenyte deposit chest</b> is activated<br>"
         + "Start at Crafting Guild with <b>Max cape</b> for other tasks<br><br> "
         + "For more information check out Esmaabi on SimpleBot!", discord = "Esmaabi#5752",
-        name = "eRunecraftingBotZenyte", servers = { "Zenyte" }, version = "1")
+        name = "eRunecraftingBotZenyte", servers = { "Zenyte" }, version = "2")
 
 public class eMain extends Script implements SkillListener {
 
@@ -44,7 +44,7 @@ public class eMain extends Script implements SkillListener {
     private int bloodRunes;
     private int denseEssence;
     private boolean chiselTask = false;
-    private boolean miningSouth = true;
+    private boolean shouldMineSouth = true;
     private int levelsGained;
     private int experienceGained;
     boolean runningSkillListener = true;
@@ -56,13 +56,24 @@ public class eMain extends Script implements SkillListener {
     private long startingSkillExpMining, startingSkillExpCrafting, startingSkillExpRunecrafting;
 
     //areas
-    private final WorldArea miningArea = new WorldArea (new WorldPoint(1759, 3862, 0), new WorldPoint(1768, 3843, 0));
     private final WorldArea craftingGuild = new WorldArea (new WorldPoint(2938, 3288, 0), new WorldPoint(2929, 3279, 0));
     private final WorldArea arecuusAltarArea = new WorldArea (new WorldPoint(1683, 3893, 0), new WorldPoint(1726, 3872, 0));
     private final WorldArea bloodAltarArea = new WorldArea(new WorldPoint(1710,3836, 0), new WorldPoint(1722,3822, 0));
     private final WorldArea arecuusWholeArea = new WorldArea(new WorldPoint(1745,3898, 0), new WorldPoint(1652,3821, 0));
     private final WorldPoint northDenseObjectLocation = new WorldPoint(1764, 3858, 0);
     private final WorldPoint southDenseObjectLocation = new WorldPoint(1764, 3846, 0);
+
+    private static final WorldArea miningArea = new WorldArea (
+            new WorldPoint(1769, 3849, 0),
+            new WorldPoint(1770, 3854, 0),
+            new WorldPoint(1771, 3860, 0),
+            new WorldPoint(1770, 3865, 0),
+            new WorldPoint(1762, 3866, 0),
+            new WorldPoint(1757, 3862, 0),
+            new WorldPoint(1757, 3854, 0),
+            new WorldPoint(1758, 3842, 0),
+            new WorldPoint(1766, 3840, 0),
+            new WorldPoint(1769, 3846, 0));
 
     private final WorldPoint[] darkAltarToBloodAltar = {
             new WorldPoint(1697, 3880, 0),
@@ -160,120 +171,124 @@ public class eMain extends Script implements SkillListener {
     public void onProcess() {
         if (!started) {
             playerState = State.WAITING;
+            return;
+        }
 
+        // Running
+        if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
+            ctx.pathing.running(true);
+        }
+
+        switch (playerState) {
+            case MINING:
+                onMiningState();
+                break;
+
+            case CRAFTING:
+                onCraftingState();
+                break;
+
+            case BLOODCRAFTING:
+                onBloodCraftingState();
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    private void onMiningState() {
+        if (!miningArea.containsPoint(ctx.players.getLocal().getLocation())) {
+            return;
+        }
+
+        if (ctx.inventory.inventoryFull() || ctx.bank.depositBoxOpen()) {
+            depositTask();
         } else {
+            if (ctx.players.getLocal().getAnimation() == -1 && (System.currentTimeMillis() > (lastAnimation + randomSleeping(3000, 4000)))) {
+                miningTask();
+                ctx.sleep(5000);
+            } else if (ctx.players.getLocal().getAnimation() != -1) {
+                lastAnimation = System.currentTimeMillis();
+            }
+        }
+    }
 
-            if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
-                ctx.pathing.running(true);
+    private void onCraftingState() {
+        if (ctx.inventory.populate().filter(13445).isEmpty()) {
+            if (!craftingGuild.containsPoint(ctx.players.getLocal().getLocation())) {
+                teleportToBankTask();
+            } else {
+                bankTask();
+            }
+        }
+        if (!ctx.inventory.populate().filter(13445).isEmpty()) {
+            if (craftingGuild.containsPoint(ctx.players.getLocal().getLocation())) {
+                teleportToArceuusTask();
             }
 
-            if (playerState == State.MINING) {
-
-                if (miningArea.containsPoint(ctx.players.getLocal().getLocation())) {
-                    if (ctx.inventory.populate().population() < 28 && !ctx.bank.depositBoxOpen() && !ctx.players.getLocal().inMotion()) {
-                        if (ctx.players.getLocal().getAnimation() == -1 && (System.currentTimeMillis() > (lastAnimation + randomSleeping(3000, 8000)))) {
-                            miningTask();
-                            ctx.sleep(5000);
-                        } else if (ctx.players.getLocal().getAnimation() != -1) {
-                            lastAnimation = System.currentTimeMillis();
-                        }
-                    } else {
-                        depositTask();
-                    }
-                }
-
+            if (arecuusAltarArea.containsPoint(ctx.players.getLocal().getLocation())) {
+                venerateTask();
             }
+        }
+    }
 
-            if (playerState == State.CRAFTING) {
-                if (ctx.inventory.populate().filter(13445).isEmpty()) {
-                    if (!craftingGuild.containsPoint(ctx.players.getLocal().getLocation())) {
-                        teleportToBankTask();
-                    } else {
-                        bankTask();
-                    }
-                }
+    private void onBloodCraftingState() {
+        if (chiselTask) {
+            chiselTaskStart();
+            return;
+        }
 
-                if (!ctx.inventory.populate().filter(13445).isEmpty()) {
-                    if (craftingGuild.containsPoint(ctx.players.getLocal().getLocation())) {
-                        teleportToArceuusTask();
-                    }
+        if (!ctx.inventory.populate().filter(13446, 1755).isEmpty()
+                && ctx.inventory.populate().filter(7938).isEmpty()
+                && (craftingGuild.containsPoint(ctx.players.getLocal().getLocation()) || ctx.pathing.inArea(bloodAltarArea))
+                && !chiselTask) {
+            status = "Making fragments";
+            chiselTask = true;
+            chiselTaskStart();
+        }
 
-                    if (arecuusAltarArea.containsPoint(ctx.players.getLocal().getLocation())) {
-                        venerateTask();
-                    }
-                }
+        if (!ctx.inventory.populate().filter(13446).isEmpty() &&
+                !ctx.inventory.populate().filter(7938).isEmpty() &&
+                craftingGuild.containsPoint(ctx.players.getLocal().getLocation())) {
+            teleportToArceuusTask();
+            return;
+        }
+
+        if (!ctx.inventory.populate().filter(13446).isEmpty() &&
+                !ctx.inventory.populate().filter(7938).isEmpty() &&
+                arecuusWholeArea.containsPoint(ctx.players.getLocal().getLocation()) &&
+                !bloodAltarArea.containsPoint(ctx.players.getLocal().getLocation())) {
+            status = "Getting to Blood Altar";
+            walkPath(bloodAltarArea, darkAltarToBloodAltar, false);
+            return;
+        }
+
+        if (ctx.pathing.inArea(bloodAltarArea) && !chiselTask) {
+            if (!ctx.inventory.populate().filter(13446).isEmpty() || !ctx.inventory.populate().filter(7938).isEmpty()) {
+                status = "Making Blood runes";
+                SimpleObject bloodAltar = ctx.objects.populate().filter(27978).nearest().next();
+                bloodAltar.click("Bind", "Blood Altar");
+                ctx.sleep(2000);
+            } else if (ctx.inventory.populate().filter(7938).isEmpty() && ctx.inventory.populate().filter(13446).isEmpty()) {
+                bloodRunes += ctx.inventory.populate().filter(565).population(true);
+                teleportToBankTask();
             }
-
-            if (playerState == State.BLOODCRAFTING) {
-
-                if (!ctx.inventory.populate().filter(13446).isEmpty()
-                        && ctx.inventory.populate().filter(7938).isEmpty()
-                        && bloodAltarArea.containsPoint(ctx.players.getLocal().getLocation())
-                        && !chiselTask) { // Making fragments near blood altar
-                    status = "Making fragments to bind";
-                    chiselTask = true;
-                }
-
-                if (!ctx.inventory.populate().filter(13446, 1755).isEmpty()
-                        && ctx.inventory.populate().filter(7938).isEmpty()
-                        && craftingGuild.containsPoint(ctx.players.getLocal().getLocation())
-                        && !chiselTask) { //Making fragments near bank
-                    status = "Making fragments";
-                    chiselTask = true;
-                    chiselTaskStart();
-                }
-
-                if (chiselTask) {
-                    ctx.sleep(200);
-                    chiselTaskStart();
-                }
-
-                if (!ctx.inventory.populate().filter(13446).isEmpty()
-                        && !ctx.inventory.populate().filter(7938).isEmpty()
-                        && craftingGuild.containsPoint(ctx.players.getLocal().getLocation())
-                        && !chiselTask) {
-                    teleportToArceuusTask();
-                }
-
-                if (!ctx.inventory.populate().filter(13446).isEmpty()
-                        && !ctx.inventory.populate().filter(7938).isEmpty()
-                        && arecuusWholeArea.containsPoint(ctx.players.getLocal().getLocation())
-                        && !bloodAltarArea.containsPoint(ctx.players.getLocal().getLocation())) {
-                    status = "Getting to Blood Altar";
-                    walkPath(bloodAltarArea, darkAltarToBloodAltar, false);
-                }
-
-                if (ctx.pathing.inArea(bloodAltarArea) && !chiselTask
-                        && (!ctx.inventory.populate().filter(13446).isEmpty() || !ctx.inventory.populate().filter(7938).isEmpty())) {
-                    status = "Making Blood runes";
-                    SimpleObject bloodAltar = ctx.objects.populate().filter(27978).nearest().next();
-                    bloodAltar.click("Bind", "Blood Altar");
-                    ctx.sleep(2000);
-                }
-
-                if (ctx.pathing.inArea(bloodAltarArea) && !chiselTask
-                        && ctx.inventory.populate().filter(7938).isEmpty()
-                        && ctx.inventory.populate().filter(13446).isEmpty()) {
-                    bloodRunes += ctx.inventory.populate().filter(565).population(true);
-                    teleportToBankTask();
-                }
-
-                if (craftingGuild.containsPoint(ctx.players.getLocal().getLocation()) && !chiselTask
-                        && (ctx.inventory.populate().filter(13446).isEmpty() || ctx.inventory.populate().filter(7938).isEmpty())) {
-                    bankTask();
-                }
-            }
+        } else if (craftingGuild.containsPoint(ctx.players.getLocal().getLocation()) && !chiselTask &&
+                (ctx.inventory.populate().filter(13446).isEmpty() || ctx.inventory.populate().filter(7938).isEmpty())) {
+            bankTask();
         }
     }
 
 
     //mining
-    public void depositTask() {
-        SimpleObject bankChest = ctx.objects.populate().filter(29090).filterHasAction("Deposit").nearest().next();
+    public void depositTask() { //banking task for mining state
+        final int BANK_CHEST_ID = 29090;
+        SimpleObject depositBox = ctx.objects.populate().filter(BANK_CHEST_ID).filterHasAction("Deposit").nearest().next();
         if (!ctx.bank.depositBoxOpen()) {
-            if (bankChest != null && bankChest.validateInteractable()) {
+            if (depositBox != null && depositBox.validateInteractable()) {
                 status = "Opening deposit box";
-                bankChest.click("Deposit");
+                depositBox.click("Deposit");
                 ctx.onCondition(() -> ctx.bank.depositBoxOpen(), randomSleeping(2000, 3500));
             }
         }
@@ -282,84 +297,84 @@ public class eMain extends Script implements SkillListener {
             status = "Depositing inventory";
             ctx.bank.depositAllExcept("Chisel");
             ctx.bank.closeBank();
-            miningSouth = true;
+            ctx.sleepCondition(() -> ctx.bank.depositBoxOpen(), randomSleeping(1000, 1500));
+            shouldMineSouth = true;
         }
     }
 
-    public void miningTask() {
-        status = "Mining dense runestone";
+    public void miningTask() { //mining task for mining state
+        final int DENSE_RUNESTONE_ID = 8975;
         //SimpleObject denseStone = ctx.objects.populate().filter("Dense runestone").filter(object -> object.click("Chip", "Dense runestone")).next();
-        SimpleObject denseStoneSouth = ctx.objects.populate().filter(8975).filter("Chip", "Dense runestone").nearest(southDenseObjectLocation).next();
-        SimpleObject denseStoneNorth = ctx.objects.populate().filter(8975).filter("Chip", "Dense runestone").nearest(northDenseObjectLocation).next();
+        SimpleObject denseStoneSouth = ctx.objects.populate().filter(DENSE_RUNESTONE_ID).filter("Chip", "Dense runestone").nearest(southDenseObjectLocation).next();
+        SimpleObject denseStoneNorth = ctx.objects.populate().filter(DENSE_RUNESTONE_ID).filter("Chip", "Dense runestone").nearest(northDenseObjectLocation).next();
 
-        if (miningSouth) {
-            status = "Mining south runestone";
-            denseStoneSouth.click("Chip", "Dense runestone");
+        while (!ctx.inventory.inventoryFull()) {
+            SimpleObject denseStone = shouldMineSouth ? denseStoneSouth : denseStoneNorth;
+            if (denseStone == null) {
+                break;
+            }
+
+            status = "Mining " + (shouldMineSouth ? "south" : "north") + " runestone";
+            denseStone.click("Chip");
             if (ctx.combat.getSpecialAttackPercentage() == 100) {
                 specialAttack();
             }
             ctx.sleep(5000);
             ctx.sleepCondition(() -> ctx.players.getLocal().getAnimation() == -1, randomSleeping(45000, 90000));
-            miningSouth = false;
+
+            shouldMineSouth = !shouldMineSouth;
         }
 
-        status = "Mining north runestone";
-        denseStoneNorth.click("Chip", "Dense runestone");
-        if (ctx.combat.getSpecialAttackPercentage() == 100) {
-            specialAttack();
+        if (ctx.inventory.inventoryFull()) {
+            depositTask();
         }
-        ctx.sleep(5000);
-        ctx.sleepCondition(() -> ctx.players.getLocal().getAnimation() == -1, randomSleeping(45000, 90000));
-        miningSouth = true;
-
     }
 
-    //Making dark blocks & bloodcrafting
-    public void bankTask() {
+    public void bankTask() { //banking task for crafting and bloodcrafting states
         status = "Starting banking task";
-        SimpleObject bankChest = ctx.objects.populate().filter(14886).filterHasAction("Use").nearest().next();//bank chest
+        SimpleObject bankChest = ctx.objects.populate().filter(14886).filterHasAction("Use").nearest().next(); // bank chest
+        if (bankChest == null || !bankChest.validateInteractable()) {
+            return;
+        }
         if (!ctx.bank.bankOpen()) {
-            if (bankChest != null && bankChest.validateInteractable()) {
-                if (!ctx.bank.bankOpen()) {
-                    status = "Opening bank";
-                    bankChest.click("Use");
-                    ctx.onCondition(() -> ctx.bank.bankOpen(), randomSleeping(2000, 3500));
-                }
+            status = "Opening bank";
+            bankChest.click("Use");
+            ctx.sleepCondition(() -> ctx.bank.bankOpen(), randomSleeping(2000, 3500));
+        }
+        if (!ctx.bank.bankOpen()) {
+            return;
+        }
+        if (playerState == State.CRAFTING) {
+            ctx.bank.depositInventory();
+            if (!ctx.bank.populate().filter(13445).isEmpty()) { // check if there are dense essence blocks in the bank
+                ctx.bank.withdraw(13445, SimpleBank.Amount.ALL);
+            } else {
+                System.out.println("No dense blocks in bank");
+                ctx.updateStatus("No dense blocks in bank");
+                playerState = State.BLOODCRAFTING;
             }
-        } else if (ctx.bank.bankOpen()) {
-            if (playerState == State.CRAFTING) {
-                ctx.bank.depositInventory();
-                ctx.bank.withdraw(13445, SimpleBank.Amount.ALL); // dense essence
-                if (ctx.bank.populate().filter(13445).isEmpty()) {
-                    System.out.println("No dense blocks in bank");
-                    ctx.updateStatus("No dense blocks in bank");
-                    playerState = State.BLOODCRAFTING;
-                }
-            }
-
-            if (playerState == State.BLOODCRAFTING) {
-                SimpleWidget quantityOne = ctx.widgets.getWidget(12, 29);//Default quantity = 1 button
+        }
+        if (playerState == State.BLOODCRAFTING) {
+            ctx.bank.depositAllExcept(1755, 7938); //chisel and dark fragments
+            if (ctx.inventory.populate().filter(1755).isEmpty()) {
+                System.out.println("Chisel not found in inventory. Withdrawing it.");
+                SimpleWidget quantityOne = ctx.widgets.getWidget(12, 29);
                 if (quantityOne != null && !quantityOne.isHidden()) {
                     quantityOne.click(0);
                 }
-
-                ctx.bank.depositAllExcept(1755, 7938); //chisel and dark fragments
-
-                if (!ctx.inventory.populate().filter(1755).isEmpty()) {
-                    ctx.bank.withdraw(13446, SimpleBank.Amount.ALL);  // dark essence
-                } else {
-                    System.out.println("Chisel not found in inventory. Withdrawing it.");
-                    ctx.bank.withdraw(1755, SimpleBank.Amount.ONE);
-                    ctx.bank.withdraw(13446, SimpleBank.Amount.ALL);  // dark essence
-                }
+                ctx.bank.withdraw(1755, SimpleBank.Amount.ONE);
+                ctx.onCondition(() -> !ctx.inventory.populate().filter(1755).isEmpty(), randomSleeping(1000, 1500));
             }
-
-            status = "Closing bank";
-            ctx.bank.closeBank();
+            if (!ctx.bank.populate().filter(13446).isEmpty()) { // check if there are dense essence blocks in the bank
+                ctx.bank.withdraw(13446, SimpleBank.Amount.ALL);
+            }
         }
+        status = "Closing bank";
+        ctx.bank.closeBank();
+        ctx.sleepCondition(() -> !ctx.bank.bankOpen(), randomSleeping(2000, 3500));
     }
 
-    public void specialAttack() {
+    public void specialAttack() { //special attack for mining state
         if (ctx.combat.getSpecialAttackPercentage() == 100
                 && ctx.equipment.populate().filter("Dragon pickaxe").population() == 1
                 && miningArea.containsPoint(ctx.players.getLocal().getLocation())) {
@@ -368,8 +383,7 @@ public class eMain extends Script implements SkillListener {
         }
     }
 
-
-    public void venerateTask() {
+    public void venerateTask() { //making dark blocks using altar for crafting state
         status = "Clicking Dark Altar";
         SimpleObject darkAltar = ctx.objects.populate().filter(27979).filterHasAction("Venerate").nearest().next();
         if (darkAltar != null && darkAltar.validateInteractable()) {
@@ -379,13 +393,13 @@ public class eMain extends Script implements SkillListener {
         darkBlocks += ctx.inventory.populate().filter(13446).population();
     }
 
-    private void walkPath(WorldArea toArea, WorldPoint[] walkPath, boolean reverse) {
+    private void walkPath(WorldArea toArea, WorldPoint[] walkPath, boolean reverse) { //walking to blood altar for bloodcrafting state
         while (!ctx.pathing.inArea(toArea)) {
             if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
                 ctx.pathing.running(true);
             }
 
-            if (scriptStopped) {
+            if (playerState == State.WAITING || scriptStopped) {
                 break;
             }
 
@@ -394,13 +408,16 @@ public class eMain extends Script implements SkillListener {
         }
     }
 
-    public void chiselTaskStart() {
+    public void chiselTaskStart() { //making dark fragments for bloodcrafting state (altar / bank)
         SimpleItem chiselTool = ctx.inventory.populate().filter(1755).next();
         SimpleItem darkEssence = ctx.inventory.populate().filter(13446).reverse().next();
         int sleepTime = randomSleeping(20, 75);
         if (chiselTool != null && chiselTool.validateInteractable()
                 && darkEssence != null && darkEssence.validateInteractable()) {
             while (!ctx.inventory.populate().filter(13446).isEmpty()) {
+                if (playerState == State.WAITING || scriptStopped) {
+                    break;
+                }
                 chiselTool.click(0);
                 ctx.sleep(sleepTime);
                 darkEssence.click(0);
@@ -411,7 +428,7 @@ public class eMain extends Script implements SkillListener {
     }
 
     //teleporting
-    public void teleportToBankTask() {
+    public void teleportToBankTask() { // teleporting for crafting or bloodcrafting state
         status = "Teleporting to Crafting Guild";
         ctx.game.tab(Game.Tab.EQUIPMENT);
         if (!ctx.equipment.populate().filter(13342).isEmpty()) {
@@ -424,7 +441,7 @@ public class eMain extends Script implements SkillListener {
         ctx.game.tab(Game.Tab.INVENTORY);
     }
 
-    public void teleportToArceuusTask() {
+    public void teleportToArceuusTask() { // teleporting for crafting or bloodcrafting state
         status = "Teleporting to Arceuus";
         ctx.game.tab(Game.Tab.MAGIC);
         SimpleWidget homeTeleport = ctx.widgets.getWidget(218, 143);//home teleport
@@ -482,7 +499,7 @@ public class eMain extends Script implements SkillListener {
             Color PhilippineRed = new Color(196, 18, 48);
             Color RaisinBlack = new Color(35, 31, 32, 127);
             g.setColor(RaisinBlack);
-            g.fillRoundRect(0, 0, 225, 110, 20, 20);
+            g.fillRoundRect(05, 120, 225, 110, 20, 20);
             g.setColor(PhilippineRed);
             g.drawRoundRect(5, 120, 225, 110, 20, 20);
             g.setColor(PhilippineRed);
@@ -538,6 +555,8 @@ public class eMain extends Script implements SkillListener {
             g.drawString("Status: " + status, 15, 225);
         }
     }
+
+
 
     @Override
     public void skillLevelAdded(SimpleSkills.Skills skill, int current, int previous, int gained) {

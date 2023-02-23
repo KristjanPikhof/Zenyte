@@ -161,7 +161,7 @@ public class eMain extends Script implements SkillListener {
 
             if (playerState == State.FISHING) {
                 if (ctx.inventory.populate().population() < 28) {
-                    if (ctx.players.getLocal().getAnimation() == -1 && (System.currentTimeMillis() > (lastAnimation + randomSleeping(3000, 5000)))) {
+                    if (ctx.players.getLocal().getAnimation() == -1 && (System.currentTimeMillis() > (lastAnimation + randomSleeping(3000, 4000)))) {
                         status = "Activating fishing task";
                         fishingTask();
                     } else if (ctx.players.getLocal().getAnimation() != -1) {
@@ -174,7 +174,7 @@ public class eMain extends Script implements SkillListener {
 
             if (playerState == State.COOKING) {
                 if (ctx.inventory.populate().filter(sacredEel).population() > 0) {
-                    if (ctx.players.getLocal().getAnimation() == -1 && (System.currentTimeMillis() > (lastAnimation + randomSleeping(3000, 5000)))) {
+                    if (ctx.players.getLocal().getAnimation() == -1 && (System.currentTimeMillis() > (lastAnimation + randomSleeping(3000, 4000)))) {
                         status = "Activating cooking task";
                         dissectTask();
                     } else if (ctx.players.getLocal().getAnimation() != -1) {
@@ -253,9 +253,9 @@ public class eMain extends Script implements SkillListener {
         Color PhilippineRed = new Color(196, 18, 48);
         Color RaisinBlack = new Color(35, 31, 32, 127);
         g.setColor(RaisinBlack);
-        g.fillRect(5, 120, 240, 110);
+        g.fillRect(5, 120, 250, 110);
         g.setColor(PhilippineRed);
-        g.drawRect(5, 120, 240, 110);
+        g.drawRect(5, 120, 250, 110);
         g.setColor(PhilippineRed);
         g.drawString("eSacredEelBot by Esmaabi", 15, 135);
         g.setColor(Color.WHITE);
