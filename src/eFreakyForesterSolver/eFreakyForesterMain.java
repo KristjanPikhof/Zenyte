@@ -142,7 +142,7 @@ public class eFreakyForesterMain extends Script {
                 } else {
 
                     if (taskPheasantMeat == null) {
-                        if (taskPheasant != null && taskPheasant.validateInteractable()) {
+                        if (taskPheasant != null && taskPheasant.validateInteractable() && ctx.groundItems.populate().filter(answerDrop).isEmpty()) {
                             taskPheasant.click("Kill");
                             ctx.onCondition(() -> !ctx.groundItems.populate().filter(answerDrop).isEmpty(), 250, 10);
                         }
@@ -177,9 +177,9 @@ public class eFreakyForesterMain extends Script {
                         SimpleGroundItem droppedItemEarlier = ctx.groundItems.populate().filter(droppedItem).next();
                         if (droppedItemEarlier != null && droppedItemEarlier.validateInteractable()) {
                             droppedItemEarlier.click("Take");
-                            ctx.sleep(5000);
+                            //ctx.sleep(5000);
                             int cached = ctx.inventory.populate().filter(droppedItem).population();
-                            ctx.onCondition(() -> ctx.inventory.populate().filter(droppedItem).population() > cached, 250, 20);
+                            ctx.sleepCondition(() -> ctx.inventory.populate().filter(droppedItem).population() > cached, 10000);
                             ctx.updateStatus("Dropped item id: " + droppedItem + " picked up.");
                         }
                         droppedItem = -1;
@@ -198,7 +198,7 @@ public class eFreakyForesterMain extends Script {
         }
     }
 
-    private void freeUpSlots() {
+/*    private void freeUpSlots() {
         if (droppedItem == -1) {
             int inventoryItem = ctx.inventory.populate().filterHasAction("Drop").next().getId();
             if (inventoryItem != -1) {
@@ -210,6 +210,21 @@ public class eFreakyForesterMain extends Script {
                 }
             }
         }
+    }*/
+
+    private void freeUpSlots() {
+        if (droppedItem != -1) {
+            return;
+        }
+
+        SimpleItem droppingItem = ctx.inventory.populate().filterHasAction("Drop").next();
+        if (droppingItem == null || !droppingItem.validateInteractable()) {
+            return;
+        }
+
+        ctx.inventory.dropItem(droppingItem);
+        droppedItem = droppingItem.getId();
+        ctx.updateStatus("Dropped item id: " + droppedItem + " saved.");
     }
 
     public static String currentTime() {
