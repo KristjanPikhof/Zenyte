@@ -78,8 +78,6 @@ public class eMain extends TaskScript implements LoopingScript {
 
         System.out.println("Started eAmethystMiner!");
 
-
-
         this.ctx.updateStatus("--------------- " + currentTime() + " ---------------");
         this.ctx.updateStatus("-------------------------------");
         this.ctx.updateStatus("       eAmethystMiner      ");
@@ -156,13 +154,13 @@ public class eMain extends TaskScript implements LoopingScript {
     }
 
     public void openingBank() {
+        SimpleObject bankChest = ctx.objects.populate().filter("Bank chest").filterHasAction("Use").nearest().next();
         if (amethArea.containsPoint(ctx.players.getLocal().getLocation()) && !ctx.pathing.inMotion()) {
             status = "Running to bank";
             ctx.pathing.step(3021, 9714);
         }
-        SimpleObject bankChest = ctx.objects.populate().filter("Bank chest").filterHasAction("Use").nearest().next();
-        if (bankChest != null && bankChest.validateInteractable()) {
-            if (!ctx.bank.bankOpen()) {
+        if (!ctx.bank.bankOpen()) {
+            if (bankChest != null && bankChest.validateInteractable()) {
                 status = "Opening bank";
                 bankChest.click("Use", "Bank chest");
                 ctx.onCondition(() -> ctx.bank.bankOpen(), randomSleeping(2000, 5000));
@@ -177,11 +175,10 @@ public class eMain extends TaskScript implements LoopingScript {
                 ctx.onCondition(() -> getInventoryPopulation() < inventorySpaceBefore, 250, 10);
             }
         }
-        if (!ctx.inventory.inventoryFull()) {
+        if (ctx.bank.bankOpen() && !ctx.inventory.inventoryFull()) {
             status = "Closing bank";
             ctx.bank.closeBank();
             ctx.onCondition(() -> !ctx.bank.bankOpen(), 5000);
-            takingStepsRMining();
         }
     }
 
@@ -192,7 +189,7 @@ public class eMain extends TaskScript implements LoopingScript {
         }
         SimpleObject amethystCrystals = ctx.objects.populate().filter("Crystals").filterHasAction("Mine").nearest().next();
         if (amethystCrystals != null && amethystCrystals.validateInteractable()) {
-            if (!ctx.inventory.populate().isEmpty()) {
+            if (getInventoryPopulation() > 1) {
                 int sleepTime = randomSleeping(0, 6400);
                 status = "Sleeping for " + sleepTime + "ms";
                 ctx.viewport.turnTo(amethystCrystals);
@@ -205,7 +202,7 @@ public class eMain extends TaskScript implements LoopingScript {
         }
     }
 
-    public void takingStepsRMining() {
+/*    public void takingStepsRMining() {
         int max = 5;
         int min = 1;
         int randomNum = ThreadLocalRandom.current().nextInt(min, max + 1);
@@ -241,27 +238,19 @@ public class eMain extends TaskScript implements LoopingScript {
                 ctx.sleep(randomSleeping(2200, 3200));
                 break;
         }
+    }*/
+
+    public void takingStepsRMining() {
+        int max = 6;
+        int min = 1;
+        int[][] coordinates = {{3024, 9708}, {3018, 9704}, {3022, 9707}, {3028, 9704}, {3019, 9706}, {3027, 9705}};
+        int randomNum = ThreadLocalRandom.current().nextInt(min, max + min);
+        ctx.pathing.step(coordinates[randomNum - 1][0], coordinates[randomNum - 1][1]);
     }
 
     public int getInventoryPopulation() {
         return ctx.inventory.populate().population();
     }
-
-/*    public void takingStepsRMining() {
-        int max = 6;
-        int min = 1;
-        int[][] coordinates = {{3024, 9708}, {3018, 9704}, {3022, 9707}, {3028, 9704}, {3019, 9706}, {3027, 9705}};
-        int randomNum = ThreadLocalRandom.current().nextInt(min, max + 1);
-        ctx.pathing.step(coordinates[randomNum-1][0], coordinates[randomNum-1][1]);
-    }*/
-
-/*    public void takingStepsRBank() {
-        int max = 4;
-        int min = 1;
-        int[][] coordinates = {{3022, 9708}, {3025, 9708}, {3022, 9713}, {3023, 9714}};
-        int randomNum = ThreadLocalRandom.current().nextInt(min, max + 1);
-        ctx.pathing.step(coordinates[randomNum-1][0], coordinates[randomNum-1][1]);
-    }*/
 
 
 

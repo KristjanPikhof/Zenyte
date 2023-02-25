@@ -177,7 +177,6 @@ public class eFreakyForesterMain extends Script {
                         SimpleGroundItem droppedItemEarlier = ctx.groundItems.populate().filter(droppedItem).next();
                         if (droppedItemEarlier != null && droppedItemEarlier.validateInteractable()) {
                             droppedItemEarlier.click("Take");
-                            //ctx.sleep(5000);
                             int cached = ctx.inventory.populate().filter(droppedItem).population();
                             ctx.sleepCondition(() -> ctx.inventory.populate().filter(droppedItem).population() > cached, 10000);
                             ctx.updateStatus("Dropped item id: " + droppedItem + " picked up.");
