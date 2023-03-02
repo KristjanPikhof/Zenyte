@@ -115,7 +115,7 @@ public class eMain extends Script implements SkillListener {
         return (int)(Math.random() * (maximum - minimum)) + minimum;
     }
 
-    enum State{
+    enum State {
         MINING,
         CRAFTING,
         BLOODCRAFTING,

@@ -49,6 +49,7 @@ public class eMain extends TaskScript implements LoopingScript {
 
     boolean specialDone = false;
     private final int[] inventoryPickaxe = {20014, 13243, 12797, 12297, 11920, 1275, 1273, 1271, 1269, 1267, 1265};
+    private State playerState;
 
     public static int randomSleeping(int minimum, int maximum) {
         return (int)(Math.random() * (maximum - minimum)) + minimum;
@@ -69,6 +70,11 @@ public class eMain extends TaskScript implements LoopingScript {
     @Override
     public List<Task> tasks() {
         return tasks;
+    }
+
+    enum State {
+        MINING,
+        WAITING,
     }
 
     @Override
@@ -92,6 +98,7 @@ public class eMain extends TaskScript implements LoopingScript {
         ctx.viewport.angle(270);
         ctx.viewport.pitch(true);
         specialDone = false;
+        playerState = State.MINING;
 
     }
 
@@ -99,59 +106,62 @@ public class eMain extends TaskScript implements LoopingScript {
     public void onProcess() {
         super.onProcess();
 
-        if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
-            ctx.pathing.running(true);
-        }
+/*        if (ctx.players.populate().filter("Kristjan", "Sleeper").isEmpty() && ctx.players.population() > 1) {
+            status = "Anti-ban activated";
+        } else {*/
 
-        if (currentExp != this.ctx.skills.experience(SimpleSkills.Skills.MINING)) {
-            count++;
-            currentExp = this.ctx.skills.experience(SimpleSkills.Skills.MINING);
-        }
+            if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
+                ctx.pathing.running(true);
+            }
 
-        if (ctx.combat.getSpecialAttackPercentage() == 100
-                && ctx.equipment.populate().filter("Dragon pickaxe").population() == 1
-                && ctx.players.getLocal().getAnimation() == 6758) {
-            int sleep = randomSleeping(2000, 8000);
-            status = "Using special attack in " + sleep + "ms";
-            ctx.sleep(sleep);
-            if (ctx.players.getLocal().getAnimation() == 6758) {
-                ctx.combat.toggleSpecialAttack(true);
-                status = "Continuing mining";
-                ctx.game.tab(Game.Tab.INVENTORY);
-                specialDone = true;
-            } else {
-                status = "Special attack cancelled";
+            if (currentExp != this.ctx.skills.experience(SimpleSkills.Skills.MINING)) {
+                count++;
+                currentExp = this.ctx.skills.experience(SimpleSkills.Skills.MINING);
+            }
+
+            if (ctx.combat.getSpecialAttackPercentage() == 100
+                    && ctx.equipment.populate().filter("Dragon pickaxe").population() == 1
+                    && ctx.players.getLocal().getAnimation() == 6758) {
+                int sleep = randomSleeping(2000, 8000);
+                status = "Using special attack in " + sleep + "ms";
+                ctx.sleep(sleep);
+                if (ctx.players.getLocal().getAnimation() == 6758) {
+                    ctx.combat.toggleSpecialAttack(true);
+                    status = "Continuing mining";
+                    ctx.game.tab(Game.Tab.INVENTORY);
+                    specialDone = true;
+                } else {
+                    status = "Special attack cancelled";
+                    if (ctx.inventory.inventoryFull()) {
+                        openingBank();
+                    } else {
+                        specialDone = true;
+                        miningTask();
+
+                    }
+                }
+            }
+
+            if (miningArea.containsPoint(ctx.players.getLocal().getLocation())) {
+
                 if (ctx.inventory.inventoryFull()) {
                     openingBank();
-                } else {
-                    specialDone = true;
-                    miningTask();
-
+                } else if (!ctx.inventory.inventoryFull() && !ctx.bank.bankOpen()) {
+                    if (!ctx.players.getLocal().isAnimating() && (System.currentTimeMillis() > (lastAnimation + randomSleeping(1200, 4600)))) {
+                        miningTask();
+                    } else if (ctx.players.getLocal().isAnimating()) {
+                        lastAnimation = System.currentTimeMillis();
+                    }
                 }
+
+            } else {
+                status = "Player not in mining area";
+                ctx.updateStatus(currentTime() + " Player not in mining area");
+                ctx.updateStatus(currentTime() + " Stopping script");
+                ctx.sleep(2400);
+                ctx.stopScript();
             }
         }
-
-        if (miningArea.containsPoint(ctx.players.getLocal().getLocation())) {
-
-            if (ctx.inventory.inventoryFull()) {
-                openingBank();
-            } else if (!ctx.inventory.inventoryFull() && !ctx.bank.bankOpen()) {
-                if (!ctx.players.getLocal().isAnimating() && (System.currentTimeMillis() > (lastAnimation + randomSleeping(1200, 4600)))) {
-                    miningTask();
-                } else if (ctx.players.getLocal().isAnimating()) {
-                    lastAnimation = System.currentTimeMillis();
-                }
-            }
-
-        } else {
-            status = "Player not in mining area";
-            ctx.updateStatus(currentTime() + " Player not in mining area");
-            ctx.updateStatus(currentTime() + " Stopping script");
-            ctx.sleep(2400);
-            ctx.stopScript();
-        }
-
-    }
 
     public void openingBank() {
         SimpleObject bankChest = ctx.objects.populate().filter("Bank chest").filterHasAction("Use").nearest().next();
@@ -259,6 +269,7 @@ public class eMain extends TaskScript implements LoopingScript {
         this.startingSkillLevel = 0L;
         this.startingSkillExp = 0L;
         count = 0;
+        playerState = State.WAITING;
 
 
         this.ctx.updateStatus("-------------- " + currentTime() + " --------------");

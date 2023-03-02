@@ -1,9 +1,5 @@
 package eChinBotZenyte;
 
-import java.awt.*;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleSkills;
 import simple.hooks.filters.SimpleSkills.Skills;
@@ -15,6 +11,10 @@ import simple.hooks.wrappers.SimpleItem;
 import simple.hooks.wrappers.SimpleObject;
 import simple.robot.script.Script;
 
+import java.awt.*;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+
 @ScriptManifest(author = "Nate/Trester/Esmaabi", category = Category.HUNTER, description = "Start near chinchompa hunting spot with boxes in inventory. Script reworked by Trester & Esmaabi",
         discord = "Nathan#6809 | Loreen#4582 | Esmaabi#5752", name = "Amazing Chins v4 (Zenyte)", servers = {"Zenyte"}, version = "4")
 
@@ -24,6 +24,7 @@ public class eMain extends Script {
     public WorldPoint startingTile;
     public String status;
     public int chinsGained;
+    public int chinsAtStart;
     boolean trapsPickup = false;
     private long startTime = 0L;
     private long startingSkillLevel;
@@ -89,7 +90,7 @@ public class eMain extends Script {
                 status = "Too many traps!";
                 trapsPickup = true;
             } else if (message.contains("cannot lay a trap here")) {
-                status = "Too many traps!";
+                status = "Can't lay here!";
                 trapsPickup = true;
             } else if (message.contains("can't lay a trap here")) {
                 status = "Can't lay here!";
@@ -105,7 +106,8 @@ public class eMain extends Script {
         this.startTime = System.currentTimeMillis(); //paint
         this.startingSkillLevel = this.ctx.skills.realLevel(Skills.HUNTER);
         this.startingSkillExp = this.ctx.skills.experience(Skills.HUNTER);
-        chinsGained = getChinCount();
+        chinsGained = 0;
+        chinsAtStart = getChinCount();
 
         // viewport settings
         ctx.viewport.angle(0);
@@ -113,7 +115,7 @@ public class eMain extends Script {
         ctx.viewport.yaw();
 
         //traps location
-        startingTile = ctx.players.getLocal().getLocation();
+/*        startingTile = ctx.players.getLocal().getLocation();
         int p = ctx.players.getLocal().getLocation().getPlane();
         locs = new WorldPoint[]{
                 new WorldPoint(startingTile.getX(), startingTile.getY(), p),
@@ -121,7 +123,17 @@ public class eMain extends Script {
                 new WorldPoint(startingTile.getX() + 1, startingTile.getY() + 1, p),
                 new WorldPoint(startingTile.getX() + 1, startingTile.getY() - 1, p),
                 new WorldPoint(startingTile.getX() - 1, startingTile.getY() - 1, p)
-        };
+        };*/
+
+        startingTile = ctx.players.getLocal().getLocation();
+        int p = startingTile.getPlane();
+        int[][] offsets = {{0, 0}, {1, 1}, {-1, 1}, {1, -1}, {-1, -1}};
+        locs = new WorldPoint[offsets.length];
+        for (int i = 0; i < offsets.length; i++) {
+            int x = startingTile.getX() + offsets[i][0];
+            int y = startingTile.getY() + offsets[i][1];
+            locs[i] = new WorldPoint(x, y, p);
+        }
     }
 
     @Override
@@ -145,14 +157,31 @@ public class eMain extends Script {
                 int trapAm = ctx.inventory.populate().filter(BOX_TRAP_ITEM).population();
                 ctx.viewport.angle(randomNumber(270, 359));
                 if (floorTrap.click("Lay", "Box trap")) {
-                    ctx.sleep(1000);
-                    ctx.onCondition(() -> ctx.inventory.populate().filter(BOX_TRAP_ITEM).population() > trapAm, 1200);
+                    ctx.sleepCondition(() -> ctx.inventory.populate().filter(BOX_TRAP_ITEM).population() > trapAm, 2000);
                 }
                 return;
             }
 
             WorldPoint trapTile = getAvailableTrapLocation();
-            if (placedTraps() != trapAmount() && trapTile != null) {
+            System.out.println("getAvailableTrapLocation: "+ getAvailableTrapLocation());
+            System.out.println("placedTraps vs trapAmount " + (placedTraps() == trapAmount()));
+            if (placedTraps() == trapAmount() && trapTile == null) {
+                status = "Waiting for action";
+                SimpleObject trap = ctx.objects.populate().filter(9382, 9383, 9385, 721).filterHasAction("Reset").filter(t -> objectInLocation(t.getLocation())).nearest().next();
+                if (trap != null && trap.validateInteractable() && ctx.players.getLocal().getAnimation() == -1) {
+                    status = "Resetting traps";
+                    int chins = getChinCount();
+                    if (trap.click("Reset")) {
+                        ctx.sleep(3000);
+                        if (trap.getName().equalsIgnoreCase("shaking box") && ctx.onCondition(() -> getChinCount() > chins, 2400)) {
+                            chinsGained += (getChinCount() - chins);
+                        }
+                        ctx.onCondition(() -> !trapExistsForTile(trap.getLocation()));
+                    }
+                }
+
+            } else {
+
                 status = "Checking traps in inventory";
                 SimpleItem invTrap = ctx.inventory.populate().filter(BOX_TRAP_ITEM).next();
 
@@ -169,37 +198,20 @@ public class eMain extends Script {
                         setupTrap(invTrap, trapTile);
                     }
                 }
-
-            } else {
-                status = "Waiting for action";
-                SimpleObject trap = ctx.objects.populate().filter(9382, 9383, 9385, 721).filterHasAction("Reset").filter(t -> objectInLocation(t.getLocation())).nearest().next();
-                if (trap != null && trap.validateInteractable() && ctx.players.getLocal().getAnimation() == -1) {
-                    status = "Resetting traps";
-                    int chins = getChinCount();
-                    if (trap.click("Reset")) {
-                        ctx.sleep(3000);
-                        if (trap.getName().equalsIgnoreCase("shaking box") && ctx.onCondition(() -> getChinCount() > chins, 2400)) {
-                            if (chinsGained > 0) {
-                                chinsGained += (getChinCount() - chins);
-                            } else {
-                                chinsGained = getChinCount();
-                            }
-                        }
-                        ctx.onCondition(() -> !trapExistsForTile(trap.getLocation()));
-                    }
-                }
             }
 
         } else {
 
-            if (ctx.groundItems.populate().filter(BOX_TRAP_ITEM).population() > 0) {
-                SimpleGroundItem trapsGround = ctx.groundItems.populate().filter(BOX_TRAP_ITEM).nearest().next();
-                status = "Picking up trap(s)";
-                int trapsInv = getTrapCountInv();
-                if (trapsGround != null && trapsGround.validateInteractable() && !ctx.players.getLocal().isAnimating()) {
-                    ctx.viewport.angle(randomNumber(270, 359));
-                    trapsGround.click("Take", "Box trap");
-                    ctx.onCondition(() -> ctx.inventory.populate().filter("Box trap").population() > trapsInv, 1200);
+            if (!ctx.groundItems.populate().filter(BOX_TRAP_ITEM).isEmpty()) {
+                if (!ctx.inventory.inventoryFull()) {
+                    SimpleGroundItem trapsGround = ctx.groundItems.populate().filter(BOX_TRAP_ITEM).nearest().next();
+                    status = "Picking up trap(s)";
+                    int trapsInv = getTrapCountInv();
+                    if (trapsGround != null && trapsGround.validateInteractable() && !ctx.players.getLocal().isAnimating()) {
+                        ctx.viewport.angle(randomNumber(270, 359));
+                        trapsGround.click("Take", "Box trap");
+                        ctx.onCondition(() -> ctx.inventory.populate().filter("Box trap").population() > trapsInv, 1200);
+                    }
                 }
             } else {
                 status = "No traps to pickup";
@@ -210,7 +222,7 @@ public class eMain extends Script {
 
     private boolean objectInLocation(WorldPoint w) {
         for (WorldPoint loc : locs) {
-            if (w.distanceTo(loc) == 0) {
+            if (w.equals(loc)) {
                 return true;
             }
         }
@@ -255,7 +267,7 @@ public class eMain extends Script {
     }
 
     public boolean trapExistsForTile(final WorldPoint tile) {
-        return !ctx.objects.populate().filter(9380, 9382, 9383, 9385, 9384, 721).filter(tile).isEmpty();
+        return !ctx.objects.populate().filter(9380, 9382, 9383, 9385, 9384, 2025, 721).filter(tile).isEmpty();
     }
 
     public int placedTraps() {

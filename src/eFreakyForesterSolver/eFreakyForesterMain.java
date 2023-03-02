@@ -197,20 +197,6 @@ public class eFreakyForesterMain extends Script {
         }
     }
 
-/*    private void freeUpSlots() {
-        if (droppedItem == -1) {
-            int inventoryItem = ctx.inventory.populate().filterHasAction("Drop").next().getId();
-            if (inventoryItem != -1) {
-                SimpleItem droppingItem = ctx.inventory.populate().filter(inventoryItem).next();
-                if (droppingItem != null && droppingItem.validateInteractable()) {
-                    ctx.inventory.dropItem(droppingItem);
-                    droppedItem = droppingItem.getId();
-                    ctx.updateStatus("Dropped item id: " + droppedItem + " saved.");
-                }
-            }
-        }
-    }*/
-
     private void freeUpSlots() {
         if (droppedItem != -1) {
             return;
