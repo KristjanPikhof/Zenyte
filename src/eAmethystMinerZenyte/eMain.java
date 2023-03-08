@@ -106,6 +106,7 @@ public class eMain extends TaskScript implements LoopingScript {
     public void onProcess() {
         super.onProcess();
 
+
             if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
                 ctx.pathing.running(true);
             }
