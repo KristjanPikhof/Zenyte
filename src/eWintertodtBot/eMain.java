@@ -1,4 +1,4 @@
-package eAmethystMinerZenyte;
+package eWintertodtBot;
 
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleSkills;
@@ -9,7 +9,9 @@ import simple.hooks.scripts.task.Task;
 import simple.hooks.scripts.task.TaskScript;
 import simple.hooks.simplebot.ChatMessage;
 import simple.hooks.simplebot.Game;
+import simple.hooks.wrappers.SimpleItem;
 import simple.hooks.wrappers.SimpleObject;
+import simple.robot.api.ClientContext;
 import simple.robot.utils.WorldArea;
 
 import java.awt.*;
@@ -19,9 +21,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Stream;
 
-@ScriptManifest(author = "Esmaabi", category = Category.MINING,
-        description = "<br>Most effective amethyst crystal mining bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br>" +
+@ScriptManifest(author = "Esmaabi", category = Category.FIREMAKING,
+        description = "<br>Most effective Wintertodt Firemaking traing bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br>" +
                 "<ul>" +
                 "<li>You must start with pickaxe </b>equipped</b> or in <b>inventory</b>;</li>" +
                 "<li>You must start at mining guild bank near amethyst crystals;</li>" +
@@ -29,14 +32,13 @@ import java.util.concurrent.ThreadLocalRandom;
                 "<li>Dragon pickaxe special attack supported;</li>" +
                 "<li>Random sleeping included!</li></ul>",
         discord = "Esmaabi#5752",
-        name = "eAmethystMinerZenyte", servers = { "Zenyte" }, version = "0.2")
+        name = "eWintertodtBotZenyte", servers = { "Zenyte" }, version = "0.1")
 
 public class eMain extends TaskScript implements LoopingScript {
 
     //coordinates
-    private final WorldArea miningArea = new WorldArea (new WorldPoint(3043, 9695, 0), new WorldPoint(2993, 9729, 0));
-    private final WorldArea amethArea = new WorldArea (new WorldPoint(3016, 9708, 0), new WorldPoint(3030, 9698, 0));
-    private final WorldArea bankArea = new WorldArea (new WorldPoint(3011, 9720, 0), new WorldPoint(3015, 9716, 0));
+    private final WorldArea bankArea = new WorldArea (new WorldPoint(1609,3965, 0), new WorldPoint(1650,3931, 0));
+    private final WorldArea wintertodtArea = new WorldArea (new WorldPoint(1609,3966, 0), new WorldPoint(1652,4029, 0));
 
     //vars
     private long startTime = 0L;
@@ -48,7 +50,8 @@ public class eMain extends TaskScript implements LoopingScript {
     private long lastAnimation = -1;
 
     boolean specialDone = false;
-    private final int[] inventoryPickaxe = {20014, 13243, 12797, 12297, 11920, 1275, 1273, 1271, 1269, 1267, 1265};
+    private final int[] foodItems = {20014, 13243, 12797, 12297, 11920, 1275, 1273, 1271, 1269, 1267, 1265};
+    private final int[] inventoryItems = {6739, 2347};
     private State playerState;
 
     public static int randomSleeping(int minimum, int maximum) {
@@ -73,7 +76,7 @@ public class eMain extends TaskScript implements LoopingScript {
     }
 
     enum State {
-        MINING,
+        RUNNING,
         WAITING,
     }
 
@@ -91,14 +94,14 @@ public class eMain extends TaskScript implements LoopingScript {
 
         status = "Setting up bot";
         this.startTime = System.currentTimeMillis();
-        this.startingSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.MINING);
-        this.startingSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.MINING);
-        currentExp = this.ctx.skills.experience(SimpleSkills.Skills.MINING);// for actions counter by xp drop
+        this.startingSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.FIREMAKING);
+        this.startingSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING);
+        currentExp = this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING);// for actions counter by xp drop
         count = 0;
         ctx.viewport.angle(270);
         ctx.viewport.pitch(true);
         specialDone = false;
-        playerState = State.MINING;
+        playerState = State.RUNNING;
 
     }
 
@@ -106,86 +109,131 @@ public class eMain extends TaskScript implements LoopingScript {
     public void onProcess() {
         super.onProcess();
 
-            if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
-                ctx.pathing.running(true);
-            }
+/*        if (ctx.players.populate().filter("Kristjan", "Sleeper").isEmpty() && ctx.players.population() > 1) {
+            status = "Anti-ban activated";
+        } else {*/
 
-            if (currentExp != this.ctx.skills.experience(SimpleSkills.Skills.MINING)) {
-                count++;
-                currentExp = this.ctx.skills.experience(SimpleSkills.Skills.MINING);
-            }
+        if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
+            ctx.pathing.running(true);
+        }
 
-            if (ctx.combat.getSpecialAttackPercentage() == 100
-                    && ctx.equipment.populate().filter("Dragon pickaxe").population() == 1
-                    && ctx.players.getLocal().getAnimation() == 6758) {
-                int sleep = randomSleeping(2000, 8000);
-                status = "Using special attack in " + sleep + "ms";
-                ctx.sleep(sleep);
-                if (ctx.players.getLocal().getAnimation() == 6758) {
-                    ctx.combat.toggleSpecialAttack(true);
-                    status = "Continuing mining";
-                    ctx.game.tab(Game.Tab.INVENTORY);
-                    specialDone = true;
-                } else {
-                    status = "Special attack cancelled";
-                    if (ctx.inventory.inventoryFull()) {
-                        openingBank();
-                    } else {
-                        specialDone = true;
-                        miningTask();
+        if (currentExp != this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING)) {
+            count++;
+            currentExp = this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING);
+        }
 
-                    }
-                }
-            }
-
-            if (miningArea.containsPoint(ctx.players.getLocal().getLocation())) {
-
-                if (ctx.inventory.inventoryFull()) {
-                    openingBank();
-                } else if (!ctx.inventory.inventoryFull() && !ctx.bank.bankOpen()) {
-                    if (!ctx.players.getLocal().isAnimating() && (System.currentTimeMillis() > (lastAnimation + randomSleeping(1200, 4600)))) {
-                        miningTask();
-                    } else if (ctx.players.getLocal().isAnimating()) {
-                        lastAnimation = System.currentTimeMillis();
-                    }
-                }
-
-            } else {
-                status = "Player not in mining area";
-                ctx.updateStatus(currentTime() + " Player not in mining area");
-                ctx.updateStatus(currentTime() + " Stopping script");
-                ctx.sleep(2400);
-                ctx.stopScript();
+        if (ctx.players.getLocal().getHealth() < 55) {
+            SimpleItem foodItem = ctx.inventory.populate().filter(foodItems).next();
+            if (foodItem != null && foodItem.validateInteractable()) {
+                foodItem.click(0);
+                ctx.onCondition(() -> ctx.players.getLocal().getHealth() > 55, 250, 10);
             }
         }
+
+        if (ctx.combat.getSpecialAttackPercentage() == 100
+                && ctx.equipment.populate().filter("Dragon axe").population() == 1
+                && ctx.players.getLocal().getAnimation() == 6758) {
+            int sleep = randomSleeping(2000, 6000);
+            status = "Using special attack in " + sleep + "ms";
+            ctx.sleep(sleep);
+            ctx.combat.toggleSpecialAttack(true);
+            ctx.game.tab(Game.Tab.INVENTORY);
+        }
+
+        if (wintertodtArea.containsPoint(ctx.players.getLocal().getLocation())) {
+
+            if (rejuvPotionAmount() == 0) {
+
+            }
+
+            if (ctx.inventory.inventoryFull()) {
+                openingBank();
+            } else if (!ctx.inventory.inventoryFull() && !ctx.bank.bankOpen()) {
+                if (!ctx.players.getLocal().isAnimating() && (System.currentTimeMillis() > (lastAnimation + randomSleeping(1200, 4600)))) {
+                    miningTask();
+                } else if (ctx.players.getLocal().isAnimating()) {
+                    lastAnimation = System.currentTimeMillis();
+                }
+            }
+
+        }
+
+        if (bankArea.containsPoint(ctx.players.getLocal().getLocation())) {
+
+            if (ctx.inventory.populate().filter(13441).population() < 15) {
+                openingBank();
+            } else {
+                runningToDoors();
+            }
+
+        }
+
+    }
+
+    public static SimpleItem getItem(String... itemName) {
+        return ClientContext.instance().inventory.populate()
+                .filter(p -> Stream.of(itemName).anyMatch(arr -> p.getName().toLowerCase().contains(arr.toLowerCase())))
+                .next();
+    }
 
     public void openingBank() {
-        SimpleObject bankChest = ctx.objects.populate().filter("Bank chest").filterHasAction("Use").nearest().next();
-        if (amethArea.containsPoint(ctx.players.getLocal().getLocation()) && !ctx.pathing.inMotion()) {
+        SimpleObject bankChest = ctx.objects.populate().filter("Bank chest").filterHasAction("Bank").nearest().next();
+        if (bankChest == null && !ctx.bank.bankOpen()) {
             status = "Running to bank";
-            ctx.pathing.step(3021, 9714);
+            ctx.pathing.step(1631, 3951);
+            return;
         }
-        if (!ctx.bank.bankOpen()) {
-            if (bankChest != null && bankChest.validateInteractable()) {
+
+        if (bankChest != null && !ctx.bank.bankOpen()) {
+            if (bankChest.validateInteractable()) {
                 status = "Opening bank";
-                bankChest.click("Use", "Bank chest");
+                bankChest.click("Bank", "Bank chest");
                 ctx.onCondition(() -> ctx.bank.bankOpen(), randomSleeping(2000, 5000));
             }
         }
-        if (ctx.bank.bankOpen()) {
+
+        if (ctx.bank.bankOpen() && ctx.inventory.populate().filter(13441).isEmpty()) {
             status = "Banking";
-            if (ctx.inventory.inventoryFull()) {
-                status = "Depositing inventory";
-                ctx.bank.depositAllExcept(inventoryPickaxe);
-                int inventorySpaceBefore = getInventoryPopulation();
-                ctx.onCondition(() -> getInventoryPopulation() < inventorySpaceBefore, 250, 10);
-            }
+            ctx.bank.depositAllExcept(inventoryItems);
+            ctx.sleep(300);
+            ctx.bank.withdraw(13441, 15);
+            ctx.sleep(300);
+            return;
         }
-        if (ctx.bank.bankOpen() && !ctx.inventory.inventoryFull()) {
+
+        if (ctx.bank.bankOpen() && !ctx.inventory.populate().filter(13441).isEmpty()) {
             status = "Closing bank";
             ctx.bank.closeBank();
             ctx.onCondition(() -> !ctx.bank.bankOpen(), 5000);
         }
+    }
+
+    private void runningToDoors() {
+        SimpleObject minigameDoors = ctx.objects.populate().filter("Doors of Dinh").nearest().next();
+        if (minigameDoors == null) {
+            status = "Running to doors";
+            ctx.pathing.step(1631, 3951);
+        }
+
+        if (minigameDoors != null && minigameDoors.validateInteractable()) {
+            status = "Enterning doors";
+            minigameDoors.click("Enter");
+            ctx.sleepCondition(() -> wintertodtArea.containsPoint(ctx.players.getLocal().getLocation()), 5000);
+        }
+    }
+
+    private int rejuvPotionAmount() {
+        String[] potionName = {"rejuvenation"};
+        SimpleItem rejuvPotion = getItem(potionName);
+        if (rejuvPotion != null) {
+            return rejuvPotion.getQuantity();
+        }
+        return 0;
+    }
+
+    private void getRejuvPotion() {
+        SimpleObject potionCrate = ctx.objects.populate().filter(29320).nearest().next();
+        SimpleObject sproutingRoots = ctx.objects.populate().filter(29315).nearest().next();
     }
 
     public void miningTask() {
@@ -302,11 +350,11 @@ public class eMain extends TaskScript implements LoopingScript {
         g.setColor(PhilippineRed);
         g.drawRect(5, 120, 200, 110);
         g.setColor(PhilippineRed);
-        g.drawString("eAmethystMiner by Esmaabi", 15, 135);
+        g.drawString("eWintertodtBot by Esmaabi", 15, 135);
         g.setColor(Color.WHITE);
         long runTime = System.currentTimeMillis() - this.startTime;
-        long currentSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.MINING);
-        long currentSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.MINING);
+        long currentSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.FIREMAKING);
+        long currentSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING);
         long SkillLevelsGained = currentSkillLevel - this.startingSkillLevel;
         long SkillExpGained = currentSkillExp - this.startingSkillExp;
         long SkillExpPerHour = (int)((SkillExpGained * 3600000D) / runTime);
@@ -315,7 +363,7 @@ public class eMain extends TaskScript implements LoopingScript {
         g.drawString("Starting Level: " + this.startingSkillLevel + " (+" + SkillLevelsGained + ")", 15, 165);
         g.drawString("Current Level: " + currentSkillLevel, 15, 180);
         g.drawString("Exp gained: " + SkillExpGained + " (" + (SkillExpPerHour / 1000L) + "k" + " xp/h)", 15, 195);
-        g.drawString("Crystals mined: " + count + " (" + ActionsPerHour + " per/h)", 15, 210);
+        g.drawString("Logs used: " + count + " (" + ActionsPerHour + " per/h)", 15, 210);
         g.drawString("Status: " + status, 15, 225);
     }
 
