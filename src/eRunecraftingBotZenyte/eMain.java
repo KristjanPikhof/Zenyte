@@ -509,7 +509,7 @@ public class eMain extends Script implements SkillListener {
             long currentSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.MINING);
             long currentSkillLevel2 = this.ctx.skills.realLevel(SimpleSkills.Skills.CRAFTING);
             long currentSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.MINING);
-            long currentSkillExp2 = this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING);
+            long currentSkillExp2 = this.ctx.skills.experience(SimpleSkills.Skills.CRAFTING);
             long SkillLevelsGained = currentSkillLevel - this.startingSkillLevelMining;
             long SkillLevelsGained2 = currentSkillLevel2 - this.startingSkillLevelCrafting;
             long SkillExpGained = currentSkillExp - this.startingSkillExpMining;
