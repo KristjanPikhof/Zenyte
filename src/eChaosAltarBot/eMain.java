@@ -166,7 +166,7 @@ public class eMain extends Script{
                     }
 
                     if (ctx.players.getLocal().getAnimation() == -1 && (System.currentTimeMillis() > (lastAnimation + 3000))) {
-                        sacreficeTask();
+                        sacrificeTask();
                     } else if (ctx.players.getLocal().getAnimation() != -1) {
                         lastAnimation = System.currentTimeMillis();
                     }
@@ -212,10 +212,10 @@ public class eMain extends Script{
         }
     }
 
-    private void sacreficeTask() {
+    private void sacrificeTask() {
         SimpleItem bonesInventory = ctx.inventory.populate().filter(30065).next();
         SimpleObject chaosAltar = ctx.objects.populate().filter("Chaos altar").next();
-        status = "Sacreficing task";
+        status = "Sacrificing task";
         if (bonesInventory != null && bonesInventory.validateInteractable() && chaosAltar != null && chaosAltar.validateInteractable()) {
             ctx.viewport.turnTo(chaosAltar);
             ctx.viewport.pitch();
