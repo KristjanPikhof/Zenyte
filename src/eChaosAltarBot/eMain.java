@@ -22,12 +22,12 @@ import static eChaosAltarBot.eGui.locationName;
 
 
 @ScriptManifest(author = "Esmaabi", category = Category.PRAYER, description =
-        "<br>Most effective firemaking bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br>" +
-        "<ul>" +
-        "<li>You must start at chosen bank;</li>" +
-        "<li>Supported locations: Falador East, Varrock East, Grand Exchange</li>" +
-        "<li>Supported trees: all normal trees from redwood to logs.</li></ul>", discord = "Esmaabi#5752",
-        name = "eChaosAltarBotZenyte", servers = { "Zenyte" }, version = "1")
+        "<br>Most effective Chaos Altar prayer training bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br>" +
+        "<ul><li>You must start at chosen bank;</li>" +
+        "<li>Have infernal ashes noted and enough gp in inventory;</li>" +
+        "<li>At the moment supports only infernal ashes</li>" +
+        "<li>Bot will log out if players around</li></ul>", discord = "Esmaabi#5752",
+        name = "eChaosAltarBotZenyte", servers = { "Zenyte" }, version = "0.1")
 
 public class eMain extends Script{
     private static eGui gui;
