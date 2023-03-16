@@ -10,6 +10,7 @@ import simple.hooks.scripts.task.TaskScript;
 import simple.hooks.simplebot.ChatMessage;
 import simple.hooks.simplebot.Game;
 import simple.hooks.wrappers.SimpleItem;
+import simple.hooks.wrappers.SimpleNpc;
 import simple.hooks.wrappers.SimpleObject;
 import simple.robot.api.ClientContext;
 import simple.robot.utils.WorldArea;
@@ -20,17 +21,18 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
 @ScriptManifest(author = "Esmaabi", category = Category.FIREMAKING,
         description = "<br>Most effective Wintertodt Firemaking traing bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br>" +
                 "<ul>" +
-                "<li>You must start with pickaxe </b>equipped</b> or in <b>inventory</b>;</li>" +
-                "<li>You must start at mining guild bank near amethyst crystals;</li>" +
+                "<li>You must start with woodcutting axe </b>equipped</b> or in <b>inventory</b>;</li>" +
+                "<li>You must start at Wintertodt bank;</li>" +
                 "<li>Do not zoom out <b>to maximum</b>;</li>" +
-                "<li>Dragon pickaxe special attack supported;</li>" +
-                "<li>Random sleeping included!</li></ul>",
+                "<li>Dragon axe special attack supported;</li>" +
+                "<li>Will eat shark, anglers or sara brew;</li>" +
+                "<li>Due to limitation will only withdraw anglers;</li>" +
+                "<li>Will eat and restock food if out of food!</li></ul>",
         discord = "Esmaabi#5752",
         name = "eWintertodtBotZenyte", servers = { "Zenyte" }, version = "0.1")
 
@@ -39,6 +41,11 @@ public class eMain extends TaskScript implements LoopingScript {
     //coordinates
     private final WorldArea bankArea = new WorldArea (new WorldPoint(1609,3965, 0), new WorldPoint(1650,3931, 0));
     private final WorldArea wintertodtArea = new WorldArea (new WorldPoint(1609,3966, 0), new WorldPoint(1652,4029, 0));
+    private final WorldArea crateArea = new WorldArea (new WorldPoint(1625,3978, 0), new WorldPoint(1635,3986, 0));
+    private final WorldPoint vialBoxLoc = new WorldPoint(1627, 3982, 0);
+    private final WorldPoint herbRootLoc = new WorldPoint(1611, 4006, 0);
+    private final WorldPoint brumaRootLoc = new WorldPoint(1622, 3988, 0);
+    private final WorldPoint doorsLocation = new WorldPoint(1630, 3968, 0);
 
     //vars
     private long startTime = 0L;
@@ -50,8 +57,8 @@ public class eMain extends TaskScript implements LoopingScript {
     private long lastAnimation = -1;
 
     boolean specialDone = false;
-    private final int[] foodItems = {20014, 13243, 12797, 12297, 11920, 1275, 1273, 1271, 1269, 1267, 1265};
-    private final int[] inventoryItems = {6739, 2347};
+    private final String[] foodItems = {"Shark", "Anglerfish", "Saradomin"};
+    private final int[] inventoryItems = {6739, 2347, 590};
     private State playerState;
 
     public static int randomSleeping(int minimum, int maximum) {
@@ -85,11 +92,11 @@ public class eMain extends TaskScript implements LoopingScript {
 
         tasks.addAll(Collections.emptyList());
 
-        System.out.println("Started eAmethystMiner!");
+        System.out.println("Started eWintertodtBot!");
 
         this.ctx.updateStatus("--------------- " + currentTime() + " ---------------");
         this.ctx.updateStatus("-------------------------------");
-        this.ctx.updateStatus("       eAmethystMiner      ");
+        this.ctx.updateStatus("       eWintertodtBot      ");
         this.ctx.updateStatus("-------------------------------");
 
         status = "Setting up bot";
@@ -109,30 +116,24 @@ public class eMain extends TaskScript implements LoopingScript {
     public void onProcess() {
         super.onProcess();
 
-/*        if (ctx.players.populate().filter("Kristjan", "Sleeper").isEmpty() && ctx.players.population() > 1) {
-            status = "Anti-ban activated";
-        } else {*/
-
         if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
             ctx.pathing.running(true);
         }
 
-        if (currentExp != this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING)) {
+        if (currentExp != this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING)) { //action counter
             count++;
             currentExp = this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING);
         }
 
-        if (ctx.players.getLocal().getHealth() < 55) {
-            SimpleItem foodItem = ctx.inventory.populate().filter(foodItems).next();
-            if (foodItem != null && foodItem.validateInteractable()) {
-                foodItem.click(0);
-                ctx.onCondition(() -> ctx.players.getLocal().getHealth() > 55, 250, 10);
-            }
+        if (ctx.players.getLocal().getHealth() < 55) { // eating
+            status = "Restoring health";
+            eatFood();
+            ctx.onCondition(() -> ctx.players.getLocal().getHealth() > 55, 250, 10);
         }
 
         if (ctx.combat.getSpecialAttackPercentage() == 100
                 && ctx.equipment.populate().filter("Dragon axe").population() == 1
-                && ctx.players.getLocal().getAnimation() == 6758) {
+                && ctx.players.getLocal().getAnimation() == 2846) { // special attack for dragon axe
             int sleep = randomSleeping(2000, 6000);
             status = "Using special attack in " + sleep + "ms";
             ctx.sleep(sleep);
@@ -140,33 +141,57 @@ public class eMain extends TaskScript implements LoopingScript {
             ctx.game.tab(Game.Tab.INVENTORY);
         }
 
-        if (wintertodtArea.containsPoint(ctx.players.getLocal().getLocation())) {
+        if (ctx.pathing.inArea(wintertodtArea)) {
 
-            if (rejuvPotionAmount() == 0) {
+            if (getFoodPopulation() == 0) {
+                restockTask();
 
-            }
+            } else {
 
-            if (ctx.inventory.inventoryFull()) {
-                openingBank();
-            } else if (!ctx.inventory.inventoryFull() && !ctx.bank.bankOpen()) {
-                if (!ctx.players.getLocal().isAnimating() && (System.currentTimeMillis() > (lastAnimation + randomSleeping(1200, 4600)))) {
-                    miningTask();
-                } else if (ctx.players.getLocal().isAnimating()) {
-                    lastAnimation = System.currentTimeMillis();
+                if (rejuvPotionAmount() == 0) {
+                    System.out.println("Making rejuv potion");
+                    getRejuvPotion();
                 }
+
+                if (rejuvPotionAmount() != 0) {
+
+                    if (ctx.players.getLocal().isAnimating()) {
+                        return;
+                    }
+
+                    checkingForSprite(); //checking for spritesId
+
+                    if (!logsInInventory()) { // Cutting logs
+                        if (!ctx.players.getLocal().isAnimating() && (System.currentTimeMillis() > (lastAnimation + randomSleeping(2500, 3500)))) {
+                            cuttingTask();
+                        } else if (ctx.players.getLocal().isAnimating()) {
+                            lastAnimation = System.currentTimeMillis();
+                        }
+                    }
+
+                    if (pyroIsAlive() && logsInInventory() && !ctx.players.getLocal().isAnimating()) { // Burning logs
+                        burningTask();
+                    }
+
+                } //rejuv potion check
+            } // food check in inventory
+        } //winterdoth area
+
+        if (ctx.pathing.inArea(bankArea)) {
+
+            if (ctx.players.getLocal().getHealth() < 90 && !ctx.bank.bankOpen() && getFoodPopulation() != 0) {
+                status = "Restoring health at bank";
+                eatFood();
+                ctx.onCondition(() -> ctx.players.getLocal().getHealth() > 90, 250, 10);
             }
 
-        }
-
-        if (bankArea.containsPoint(ctx.players.getLocal().getLocation())) {
-
-            if (ctx.inventory.populate().filter(13441).population() < 15) {
+            if (getFoodPopulation() < 15) {
                 openingBank();
             } else {
                 runningToDoors();
             }
 
-        }
+        } // bank area
 
     }
 
@@ -181,7 +206,7 @@ public class eMain extends TaskScript implements LoopingScript {
         if (bankChest == null && !ctx.bank.bankOpen()) {
             status = "Running to bank";
             ctx.pathing.step(1631, 3951);
-            return;
+            ctx.sleepCondition(() -> ctx.pathing.inMotion());
         }
 
         if (bankChest != null && !ctx.bank.bankOpen()) {
@@ -192,16 +217,15 @@ public class eMain extends TaskScript implements LoopingScript {
             }
         }
 
-        if (ctx.bank.bankOpen() && ctx.inventory.populate().filter(13441).isEmpty()) {
+        if (ctx.bank.bankOpen() && ctx.inventory.populate().filter(13441).population() < 15) {
             status = "Banking";
             ctx.bank.depositAllExcept(inventoryItems);
             ctx.sleep(300);
-            ctx.bank.withdraw(13441, 15);
+            ctx.bank.withdraw(13441, 18); //food Anglers
             ctx.sleep(300);
-            return;
         }
 
-        if (ctx.bank.bankOpen() && !ctx.inventory.populate().filter(13441).isEmpty()) {
+        if (ctx.bank.bankOpen() && ctx.inventory.populate().filter(13441).population() > 15) {
             status = "Closing bank";
             ctx.bank.closeBank();
             ctx.onCondition(() -> !ctx.bank.bankOpen(), 5000);
@@ -218,12 +242,36 @@ public class eMain extends TaskScript implements LoopingScript {
         if (minigameDoors != null && minigameDoors.validateInteractable()) {
             status = "Enterning doors";
             minigameDoors.click("Enter");
-            ctx.sleepCondition(() -> wintertodtArea.containsPoint(ctx.players.getLocal().getLocation()), 5000);
+            ctx.sleepCondition(() -> ctx.pathing.inArea(wintertodtArea), 5000);
+        }
+    }
+
+    public void restockTask() {
+        status = "Running to doors";
+        if (ctx.players.getLocal().getLocation().distanceTo(doorsLocation) > 5) {
+            ctx.pathing.step(doorsLocation);
+            ctx.sleepCondition(() -> ctx.players.getLocal().getLocation().distanceTo(doorsLocation) < 5);
+        }
+
+        if (ctx.players.getLocal().getLocation().distanceTo(doorsLocation) <= 5) {
+            SimpleObject minigameDoors = ctx.objects.populate().filter("Doors of Dinh").nearest().next();
+            status = "Leaving";
+
+            if (minigameDoors != null && minigameDoors.validateInteractable()) {
+                minigameDoors.click("Enter");
+                ctx.onCondition(() -> ctx.dialogue.dialogueOpen(), 250, 10);
+            }
+
+            if (!ctx.dialogue.dialogueOpen()) {
+                return;
+            }
+            ctx.dialogue.clickDialogueOption(1);
+            ctx.sleepCondition(() -> ctx.pathing.inArea(bankArea), 5000);
         }
     }
 
     private int rejuvPotionAmount() {
-        String[] potionName = {"rejuvenation"};
+        String[] potionName = {"rejuvenation potion (4)", "rejuvenation potion (3)", "rejuvenation potion (2)", "rejuvenation potion (1)"};
         SimpleItem rejuvPotion = getItem(potionName);
         if (rejuvPotion != null) {
             return rejuvPotion.getQuantity();
@@ -231,82 +279,172 @@ public class eMain extends TaskScript implements LoopingScript {
         return 0;
     }
 
+    private void eatFood() {
+        SimpleItem foodInInv = getItem(foodItems);
+        if (foodInInv == null) {
+            return;
+        }
+        foodInInv.click(0);
+    }
+
     private void getRejuvPotion() {
-        SimpleObject potionCrate = ctx.objects.populate().filter(29320).nearest().next();
-        SimpleObject sproutingRoots = ctx.objects.populate().filter(29315).nearest().next();
-    }
-
-    public void miningTask() {
-        if (bankArea.containsPoint(ctx.players.getLocal().getLocation()) && !ctx.pathing.inMotion()) {
-            status = "Going to mining area";
-            takingStepsRMining();
-        }
-        SimpleObject amethystCrystals = ctx.objects.populate().filter("Crystals").filterHasAction("Mine").nearest().next();
-        if (amethystCrystals != null && amethystCrystals.validateInteractable()) {
-            if (getInventoryPopulation() > 1) {
-                int sleepTime = randomSleeping(0, 6400);
-                status = "Sleeping for " + sleepTime + "ms";
-                ctx.viewport.turnTo(amethystCrystals);
-                ctx.sleep(sleepTime);
+        int unfPotion = 20697;
+        int brumaHerb = 20698;
+        if (ctx.inventory.populate().filter(unfPotion).isEmpty()) {
+            status = "Running to crates";
+            if (!ctx.pathing.inArea(crateArea)) {
+                ctx.pathing.step(vialBoxLoc);
+                ctx.sleepCondition(() -> ctx.players.getLocal().getLocation().distanceTo(vialBoxLoc) < 5);
             }
-            status = "Mining amethyst crystals";
-            amethystCrystals.click("Mine", "Crystals");
-            specialDone = false;
-            ctx.onCondition(() -> ctx.players.getLocal().isAnimating(), 5000);
+
+            if (ctx.pathing.inArea(crateArea)) {
+                SimpleObject vialBoxObject = ctx.objects.populate().filter(29320).nearest().next();
+                status = "Getting unfinished rejuv";
+                if (vialBoxObject != null && vialBoxObject.validateInteractable()) {
+                    vialBoxObject.click(0);
+                    int cached = ctx.inventory.populate().filter(unfPotion).population();
+                    ctx.onCondition(() -> ctx.inventory.populate().filter(unfPotion).population() > cached, 250, 10);
+                }
+            }
+        }
+
+        if (ctx.inventory.populate().filter(brumaHerb).isEmpty() && !ctx.inventory.populate().filter(unfPotion).isEmpty()) {
+            if (ctx.players.getLocal().getLocation().distanceTo(herbRootLoc) > 5) {
+                status = "Running to herb root";
+                ctx.pathing.step(herbRootLoc);
+                ctx.onCondition(() -> ctx.players.getLocal().getLocation().distanceTo(herbRootLoc) < 5);
+            }
+
+            if (ctx.players.getLocal().getLocation().distanceTo(herbRootLoc) <= 5) {
+                SimpleObject herbRoot = ctx.objects.populate().filter(29315).nearest().next();
+                status = "Getting herb";
+                if (herbRoot != null &&herbRoot.validateInteractable()) {
+                    herbRoot.click(0);
+                    int cached = ctx.inventory.populate().filter(brumaHerb).population();
+                    ctx.onCondition(() -> ctx.inventory.populate().filter(brumaHerb).population() > cached);
+                }
+            }
+        }
+
+        if (!ctx.inventory.populate().filter(unfPotion).isEmpty() && !ctx.inventory.populate().filter(brumaHerb).isEmpty()) {
+            status = "Making rejuv potion";
+            SimpleItem unfPotionInv = ctx.inventory.populate().filter(unfPotion).next();
+            SimpleItem brumaHerbInv = ctx.inventory.populate().filter(brumaHerb).next();
+            unfPotionInv.click("Use");
+            ctx.sleep(200);
+            brumaHerbInv.click(0);
+            ctx.sleep(200);
+            ctx.pathing.step(1620, 3993);
+            ctx.sleep(1000);
+        }
+
+    }
+
+    public void burningTask() {
+        status = "Burning roots";
+        SimpleObject burningBrazier = ctx.objects.populate().filter(29314).filterWithin(10).next();
+        if (burningBrazier == null) {
+            return;
+        }
+        burningBrazier.click("Feed");
+        int cached = ctx.players.getLocal().getHealth();
+        ctx.sleepCondition(() -> ctx.players.getLocal().getHealth() < cached || !logsInInventory(), 10000);
+    }
+
+    public void cuttingTask() {
+        if (ctx.players.getLocal().getLocation().distanceTo(brumaRootLoc) > 5) {
+            status = "Running to bruma root";
+            ctx.pathing.step(brumaRootLoc);
+            ctx.sleepCondition(() -> ctx.players.getLocal().getLocation().distanceTo(brumaRootLoc) < 5);
+        }
+
+        if (ctx.players.getLocal().getLocation().distanceTo(brumaRootLoc) <= 5) {
+            SimpleObject brumaRoots = ctx.objects.populate().filter("Bruma roots").nearest().next();
+            status = "Cutting bruma root";
+            if (brumaRoots != null && brumaRoots.validateInteractable()) {
+                brumaRoots.click("Chop");
+                ctx.onCondition(() -> ctx.players.getLocal().isAnimating(), 250, 10);
+            }
         }
     }
 
-/*    public void takingStepsRMining() {
-        int max = 5;
-        int min = 1;
-        int randomNum = ThreadLocalRandom.current().nextInt(min, max + 1);
-        switch(randomNum) {
-            case 1:
-                status = "Taking path: 1";
-                ctx.pathing.step(3024, 9708);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
-            case 2:
-                status = "Taking path: 2";
-                ctx.pathing.step(3018, 9704);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
-            case 3:
-                status = "Taking path:  3";
-                ctx.pathing.step(3022, 9707);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
-            case 4:
-                status = "Taking path: 4";
-                ctx.pathing.step(3028, 9704);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
-            case 5:
-                status = "Taking path: 5";
-                ctx.pathing.step(3027, 9705);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
-            default:
-                status = "Taking path: default";
-                ctx.pathing.step(3019, 9706);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
+    private boolean logsInInventory() {
+        if (ctx.inventory.populate().filter(20695).isEmpty()) {
+            return false;
         }
-    }*/
-
-    public void takingStepsRMining() {
-        int max = 6;
-        int min = 1;
-        int[][] coordinates = {{3024, 9708}, {3018, 9704}, {3022, 9707}, {3028, 9704}, {3019, 9706}, {3027, 9705}};
-        int randomNum = ThreadLocalRandom.current().nextInt(min, max + min);
-        ctx.pathing.step(coordinates[randomNum - 1][0], coordinates[randomNum - 1][1]);
+        return true;
     }
 
-    public int getInventoryPopulation() {
-        return ctx.inventory.populate().population();
+    private void healingPyromancerTask() {
+        status = "Helping Pyromancer";
+        SimpleNpc dyingPyromancer = ctx.npcs.populate().filter(7372).filterWithin(10).filterHasAction("Help").nearest().next(); // "Incapacited pyromancer"
+        if (dyingPyromancer != null) {
+            status = "Helping Pyromancer";
+            dyingPyromancer.click("Help");
+            ctx.sleepCondition(() -> ctx.widgets.getWidget(396, 8).getSpriteId() == -1, 3000);
+        } //for some reason sometimes it has null point exception with this...
     }
 
+    private void fixingBrazier() {
+        status = "Repairing brazier";
+        SimpleObject brazierBroken = ctx.objects.populate().filter("Brazier").filterWithin(10).filterHasAction("Fix").nearest().next(); // Repair brazier
+        if (brazierBroken != null) {
+            status = "Repairing brazier";
+            brazierBroken.click("Fix");
+            ctx.sleepCondition(() -> ctx.widgets.getWidget(396, 12).getSpriteId() == 1398, 3000);
+        } //for some reason sometimes it has null point exception with this...
+    }
 
+    private void lightingBrazier() {
+        SimpleObject brazierNeedsLight = ctx.objects.populate().filter("Brazier").filterWithin(10).filterHasAction("Light").nearest().next(); // Light brazier
+        if (brazierNeedsLight != null) {
+            status = "Lighting brazier";
+            brazierNeedsLight.click("Light");
+            ctx.sleepCondition(() -> ctx.widgets.getWidget(396, 12).getSpriteId() == 1399, 3000);
+        }
+    }
+
+    private void checkingForSprite() {
+        if (ctx.widgets.getWidget(396, 8).getSpriteId() == 1400) {
+            System.out.println("Status: Pyro is dead");
+            healingPyromancerTask();
+            return;
+        }
+
+        if (ctx.widgets.getWidget(396, 12).getSpriteId() == 1397) {
+            System.out.println("Status: Brazier needs fixing");
+            fixingBrazier();
+            return;
+        }
+
+        if (ctx.widgets.getWidget(396, 12).getSpriteId() == 1398) {
+            System.out.println("Status: Brazier not burning");
+            lightingBrazier();
+            return;
+        }
+
+        return;
+    }
+
+    private boolean brazierFireIsBurning() {
+        if (ctx.widgets.getWidget(396, 12).getSpriteId() == 1399) {
+            System.out.println("Status: Fire is burning");
+            return true;
+        }
+        return false;
+    }
+
+    private boolean pyroIsAlive() {
+        if (ctx.widgets.getWidget(396, 8).getSpriteId() == -1) {
+            System.out.println("Status: Pyro is alive");
+            return true;
+        }
+        return false;
+    }
+
+    private int getFoodPopulation() {
+        return ctx.inventory.populate().filter(foodItems).population();
+    }
 
     @Override
     public void onTerminate() {

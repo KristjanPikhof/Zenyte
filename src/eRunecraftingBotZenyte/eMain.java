@@ -47,6 +47,7 @@ public class eMain extends Script implements SkillListener {
     private boolean shouldMineSouth = true;
     private int levelsGained;
     private int experienceGained;
+    private int denseInInventory;
     boolean runningSkillListener = true;
     private boolean scriptStopped = false;
 
@@ -133,6 +134,7 @@ public class eMain extends Script implements SkillListener {
         darkBlocks = 0;
         bloodRunes = 0;
         denseEssence = 0;
+        denseInInventory = 0;
 
         this.ctx.updateStatus("----------------------------------");
         this.ctx.updateStatus("      eRunecraftingBotZenyte      ");
@@ -571,6 +573,10 @@ public class eMain extends Script implements SkillListener {
         //experienceGained += gained;
 
         if (playerState == State.MINING) {
+/*            int cached = ctx.inventory.populate().filter(13445).population();
+            if (cached > denseInInventory) {
+                denseEssence = cached - denseInInventory;
+            }*/
             denseEssence++;
         }
     }
