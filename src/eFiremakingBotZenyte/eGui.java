@@ -16,7 +16,6 @@ public class eGui extends JFrame {
     private JComboBox<String> logsComboBox;
     private JButton startButton;
     private JButton pauseButton;
-    private JButton paintButton;
 
     public eGui() {
         setTitle("eFiremakingBot");
@@ -42,44 +41,47 @@ public class eGui extends JFrame {
         constraints.gridx = 0;
         constraints.gridwidth = 2;
         constraints.anchor = GridBagConstraints.CENTER;
-        addLabel("eFiremakingBot options are below:", contentPane, constraints, true);
+        addLabel("Please choose options below!", contentPane, constraints, true);
 
-        constraints.gridwidth = 1; // Reset gridwidth
-        constraints.anchor = GridBagConstraints.WEST; // Reset anchor
-
+        constraints.gridwidth = 1; // Resetting gridwidth
+        constraints.anchor = GridBagConstraints.WEST; // Resetting anchor
 
         constraints.gridy++; // Moving to next row
-        constraints.gridx = 0; // Reset x position to 0
+        constraints.gridx = 0; // Resetting x-axis position to 0
 
         // Select location
         addLabel("Select Location: ", contentPane, constraints, false);
-        constraints.gridx = 1; // Setting x position to 1
+        constraints.gridx = 1; // Setting x-axis position to 1
         locationComboBox = addComboBox(LOCATIONS, contentPane, constraints);
+        locationComboBox.setPreferredSize(new Dimension(150, locationComboBox.getPreferredSize().height));
+
+        constraints.gridx = 0; // Resetting x-axis position to 0
+        constraints.gridy++; // Moving to next row
 
         // Select logs
         addLabel("Select Logs: ", contentPane, constraints, false);
-        constraints.gridx = 1; // Setting x position to 1
+        constraints.gridx = 1; // Setting x-axis position to 1
         logsComboBox = addComboBox(LOGS, contentPane, constraints);
+        logsComboBox.setPreferredSize(new Dimension(150, logsComboBox.getPreferredSize().height));
 
+        constraints.gridx = 0; // Resetting x-axis position to 0
         constraints.gridy++; // Moving to next row
-        constraints.gridx = 0; // Reset x position to 0
+        constraints.gridwidth = 2; // Resetting gridwidth
+        constraints.anchor = GridBagConstraints.CENTER; // Resetting anchor
 
-        // Start button
+        // Start and Pause buttons
+        JPanel buttonsPanel = new JPanel(new GridLayout(1, 2, 5, 0));
         startButton = new JButton("Start");
         startButton.addActionListener(e -> startBot());
-        contentPane.add(startButton, constraints);
-
-        // Pause button
+        startButton.setBackground(Color.GREEN);
+        buttonsPanel.add(startButton);
         pauseButton = new JButton("Pause");
         pauseButton.addActionListener(e -> pauseBot());
-        contentPane.add(pauseButton, constraints);
-        pauseButton.setVisible(false); // Set pause
+        pauseButton.setVisible(false); // Setting button invisible
+        pauseButton.setBackground(Color.RED);
+        buttonsPanel.add(pauseButton);
+        contentPane.add(buttonsPanel, constraints);
 
-        // Paint button
-        constraints.gridx = 1; // Setting x position to 1
-        paintButton = new JButton("Paint");
-        paintButton.addActionListener(e -> eMain.hidePaint = !eMain.hidePaint);
-        contentPane.add(paintButton, constraints);
     }
 
     private void addLabel(String text, Container container, GridBagConstraints constraints, boolean isTitle) {
