@@ -20,10 +20,10 @@ import java.util.Map;
 @ScriptManifest(author = "Esmaabi", category = Category.FIREMAKING, description =
         "<br>Most effective firemaking bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br>" +
         "<ul>" +
-        "<li>You must start at chosen bank;</li>" +
+        "<li>You must start at chosen bank without logs in inventory;</li>" +
         "<li>Supported locations: Falador East, Varrock East, Grand Exchange</li>" +
         "<li>Supported trees: all normal trees from redwood to logs.</li></ul>", discord = "Esmaabi#5752",
-        name = "eFiremakingBotZenyte", servers = { "Zenyte" }, version = "2")
+        name = "eFiremakingBotZenyte", servers = { "Zenyte" }, version = "2.1")
 
 public class eMain extends Script {
     private static eGui gui;
@@ -124,7 +124,7 @@ public class eMain extends Script {
                     if (!ctx.players.getLocal().getLocation().equals(START_TILE)) {
                         status = "Running to start location";
                         ctx.pathing.step(START_TILE);
-                        ctx.sleepCondition(() -> ctx.players.getLocal().getLocation().equals(START_TILE), 4000);
+                        ctx.sleepCondition(() -> ctx.players.getLocal().getLocation().equals(START_TILE), 2500);
                     } else {
                         FMStarted = true;
                         System.out.println("Starting FM task?: " + FMStarted);
@@ -310,6 +310,13 @@ public class eMain extends Script {
         return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
     }
 
+    private void drawTileMatrix(Graphics2D g, WorldPoint startTile) {
+        for (int i = 0; i < 27; i++) {
+            WorldPoint tile = new WorldPoint(startTile.getX() - i, startTile.getY(), startTile.getPlane());
+            ctx.paint.drawTileMatrix(g, tile, Color.GREEN);
+        }
+    }
+
     @Override
     public void onTerminate() {
         this.startingSkillLevel = 0L;
@@ -346,6 +353,14 @@ public class eMain extends Script {
     @Override
     public void paint(Graphics g) {
 
+        // Drawing a Firemaking path
+        if (START_TILE != null) {
+            WorldPoint[] tileToDrawFrom = new WorldPoint[]{START_TILE};
+            for (WorldPoint startTile : tileToDrawFrom) {
+                drawTileMatrix((Graphics2D) g, startTile);
+            }
+        }
+
         // Check if mouse is hovering over the paint
         Point mousePos = ctx.mouse.getPoint();
         if (mousePos != null) {
@@ -368,7 +383,7 @@ public class eMain extends Script {
         Color philippineRed = new Color(196, 18, 48);
         Color raisinBlack = new Color(35, 31, 32, 127);
 
-        // Draw paint
+        // Draw paint if not hidden
         if (!hidePaint) {
             g.setColor(raisinBlack);
             g.fillRoundRect(5, 120, 200, 110, 20, 20);
@@ -388,8 +403,6 @@ public class eMain extends Script {
 
         }
     }
-
-
 
     private String formatTime(long ms) {
         long s = ms / 1000L;
