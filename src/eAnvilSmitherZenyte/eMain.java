@@ -44,7 +44,7 @@ import java.awt.Graphics;
         discord = "Esmaabi#5752",
         name = "eAnvilSmitherZenyte",
         servers = {"Zenyte"},
-        version = "0.1"
+        version = "0.2"
 )
 
 public class eMain extends TaskScript implements LoopingScript {
@@ -75,7 +75,6 @@ public class eMain extends TaskScript implements LoopingScript {
     private boolean botStarted = false;
     private static boolean hidePaint = false;
     private Runnable lastSmithingTask, lastBankingTask = null;
-    private boolean smithingAllowed = true;
 
     // Tasks
     private final List<Task> tasks = new ArrayList<>();
@@ -102,14 +101,14 @@ public class eMain extends TaskScript implements LoopingScript {
         eRandomEventForester.answerDropId = -1;
         eRandomEventForester.droppedItemId = -1;
 
-        //
+        // Other vars
         System.out.println("Started eAnvilSmither!");
         this.ctx.updateStatus("--------------- " + currentTime() + " ---------------");
         this.ctx.updateStatus("-------------------------------");
         this.ctx.updateStatus("       eAnvilSmitherZenyte     ");
         this.ctx.updateStatus("-------------------------------");
 
-        //Vars
+        // Vars
         updateStatus("Setting up bot");
         this.startTime = System.currentTimeMillis();
         this.startingSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.SMITHING);
@@ -121,7 +120,7 @@ public class eMain extends TaskScript implements LoopingScript {
         ctx.viewport.angle(270);
         ctx.viewport.pitch(true);
 
-        //Choosing bars and items to smith
+        // Choosing bars and items to smith
         barsInInv = getItemFunction(); //checking which bars to use
         if (barsInInv != -1) {
             eGui.eGuiDialogueTarget();
@@ -181,7 +180,6 @@ public class eMain extends TaskScript implements LoopingScript {
             int barsInInventoryCount = ctx.inventory.populate().filter(barsInInv).population();
 
             if (barsInInventoryCount < minBarsRequired) {
-                smithingAllowed = false;
                 startBankingTask();
             } else {
                 if (ctx.bank.bankOpen()) {
@@ -190,22 +188,15 @@ public class eMain extends TaskScript implements LoopingScript {
                 }
 
                 if (!playerIsAnimating && (System.currentTimeMillis() > (lastAnimation + 6000))) {
-                    smithingAllowed = true;
                     startingSmithingTask();
                 } else if (playerIsAnimating) {
                     lastAnimation = System.currentTimeMillis();
                 }
             }
         }
-/*        } else {
-            updateStatus("Player not in smithing area");
-            ctx.updateStatus(currentTime());
-            ctx.sleep(2400);
-            ctx.stopScript();
-        }*/
     }
 
-    //Banking
+    // Banking
     private void startBankingTask() {
         Runnable bankingTask = getBankingLocation();
         updateStatus("Banking task");
@@ -224,7 +215,6 @@ public class eMain extends TaskScript implements LoopingScript {
             ctx.onCondition(() -> ctx.inventory.populate().filter(barsInInv).population() >= minBarsRequired, 3000);
             updateStatus("Closing bank");
             ctx.bank.closeBank();
-            smithingAllowed = true;
             return;
         }
 
@@ -302,7 +292,7 @@ public class eMain extends TaskScript implements LoopingScript {
         }
     }
 
-    //Smithing
+    // Smithing
     private void startingSmithingTask() {
         Runnable smithingTask = getSmithingLocation();
         if (smithingTask != null) {
@@ -319,21 +309,18 @@ public class eMain extends TaskScript implements LoopingScript {
             return;
         }
 
-        if (smithingAllowed) {
-
-            if (!widgetScreenVisible) {
-                if (anvil != null && anvil.validateInteractable() && !ctx.pathing.inMotion()) {
-                    updateStatus("Clicking anvil");
-                    anvil.click("Smith", "Anvil");
-                    ctx.sleepCondition(() -> smithingItem == null, 5000);
-                }
-            } else {
-                updateStatus("Making " + nameOfItem);
-                smithingItem.click(5); // menu element 5
-                ctx.onCondition(smithingItem::isHidden, 250, 10);
-                smithingAllowed = false;
-                ctx.sleep(2000);
+        if (!widgetScreenVisible) {
+            if (anvil != null && anvil.validateInteractable() && !ctx.pathing.inMotion()) {
+                updateStatus("Clicking anvil");
+                anvil.click("Smith", "Anvil");
+                ctx.sleepCondition(() -> smithingItem == null, 5000);
             }
+        } else {
+            updateStatus("Making " + nameOfItem);
+            smithingItem.click(5); // menu element 5
+            lastAnimation = System.currentTimeMillis();
+            ctx.onCondition(smithingItem::isHidden, 250, 10);
+            lastAnimation = System.currentTimeMillis();
         }
     }
 
@@ -406,6 +393,15 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onTerminate() {
+
+        // eRandomEvent vars
+        eRandomEventForester.finished = false;
+        eRandomEventForester.taskAquired = false;
+        eRandomEventForester.answerPheasantToKill = -1;
+        eRandomEventForester.answerDropId = -1;
+        eRandomEventForester.droppedItemId = -1;
+
+        // Other vars
         this.startingSkillLevel = 0L;
         this.startingSkillExp = 0L;
         this.count = 0;
