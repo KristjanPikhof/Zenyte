@@ -2,36 +2,34 @@ package eAnvilSmitherZenyte;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.WindowAdapter;
 import java.util.Objects;
 
-public class eGui extends WindowAdapter {
+public class eGui {
     public static String returnItem;
     public static Component f;
 
     public static void eGuiDialogueTarget() {
-        String[] targetSelect  = new String[] {"Sword", "Platebody", "Dart tips"};
+        String[] smithingItems = {"Sword", "Platebody", "Dart tips"};
 
         ImageIcon eIcon = new ImageIcon(Objects.requireNonNull(eGui.class.getResource("Smithing_cape_logo.png")));
 
         returnItem = (String) JOptionPane.showInputDialog(f,
-                "\n"
-                        + "<html><b>What item you want to smith?</b></html>\n"
-                        + "\n"
-                        + "Before starting eAnvilSmither by Esmaabi you must\n"
-                        + "1. have full inventory or bars + hammer.\n"
-                        + "2. set the Last-preset to the same inventory.\n"
-                        + "\n"
-                        + "Randomized sleeping times included!\n"
-                        + "Start near ::dzone anvil or in Varrock west bank!\n"
-                        + "\n",
-                "What item you want to smith? - eAnvilSmitherZaros by Esmaabi",
-                JOptionPane.WARNING_MESSAGE, eIcon, targetSelect, targetSelect[2]);
+                "<html>"
+                        + "<b>Select item you want to smith:</b><br><br>"
+                        + "<p><strong>Features & recommendations:</strong></p>"
+                        + "<ul>"
+                        + "<li>Start with a <strong>hammer</strong> in your inventory.</li>"
+                        + "<li>Start <strong>with bars in your inventory</strong>.</li>"
+                        + "<li>Start at Varrock West Bank or Port Khazard Bank.</li>"
+                        + "<li>Zoom out to <strong>see both the anvil and the bank</strong>.</li>"
+                        + "<li>Incorporates random sleep times for a more natural behavior.</li>"
+                        + "</ul>"
+                        + "</html>",
+                "Select item you want to smith - eAnvilSmitherZaros by Esmaabi",
+                JOptionPane.WARNING_MESSAGE, eIcon, smithingItems, smithingItems[2]);
     }
-
 
     public static void main(String[] args) {
         eGuiDialogueTarget();
     }
 }
-

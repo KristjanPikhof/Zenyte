@@ -128,21 +128,21 @@ public class eMain extends TaskScript implements LoopingScript {
             switch (returnItem) {
                 case "Sword":
                     nameOfItem = "swords";
-                    updateStatus("Making " + nameOfItem);
+                    updateStatus("Smithing " + nameOfItem);
                     smithingWidget = 3;
                     minBarsRequired = 1;
                     botStarted = true;
                     break;
                 case "Platebody":
                     nameOfItem = "platebodies";
-                    updateStatus("Making " + nameOfItem);
+                    updateStatus("Smithing " + nameOfItem);
                     smithingWidget = 15;
                     minBarsRequired = 5;
                     botStarted = true;
                     break;
                 case "Dart tips":
                     nameOfItem = "dart tips";
-                    updateStatus("Making " + nameOfItem);
+                    updateStatus("Smithing " + nameOfItem);
                     smithingWidget = 23;
                     minBarsRequired = 1;
                     botStarted = true;
