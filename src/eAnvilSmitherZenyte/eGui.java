@@ -25,7 +25,7 @@ public class eGui {
                         + "<li>Incorporates random sleep times for a more natural behavior.</li>"
                         + "</ul>"
                         + "</html>",
-                "Select item you want to smith - eAnvilSmitherZaros by Esmaabi",
+                "Select item you want to smith - eAnvilSmither by Esmaabi",
                 JOptionPane.WARNING_MESSAGE, eIcon, smithingItems, smithingItems[2]);
     }
 

@@ -94,13 +94,6 @@ public class eMain extends TaskScript implements LoopingScript {
 
         tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));// Adds tasks to our {task} list for execution
 
-        // eRandomEvent vars
-        eRandomEventForester.finished = false;
-        eRandomEventForester.taskAquired = false;
-        eRandomEventForester.answerPheasantToKill = -1;
-        eRandomEventForester.answerDropId = -1;
-        eRandomEventForester.droppedItemId = -1;
-
         // Other vars
         System.out.println("Started eAnvilSmither!");
         this.ctx.updateStatus("--------------- " + currentTime() + " ---------------");
@@ -393,13 +386,6 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onTerminate() {
-
-        // eRandomEvent vars
-        eRandomEventForester.finished = false;
-        eRandomEventForester.taskAquired = false;
-        eRandomEventForester.answerPheasantToKill = -1;
-        eRandomEventForester.answerDropId = -1;
-        eRandomEventForester.droppedItemId = -1;
 
         // Other vars
         this.startingSkillLevel = 0L;
