@@ -45,7 +45,7 @@ public class eMain extends TaskScript implements LoopingScript {
 
     // Constants
     private static final String[] BANK_NAME = {"Bank booth", "Bank chest"};
-    private static final int BANKER_ID = 10029;
+    //private static final int BANKER_ID = 10029;
 
 
     // Variables
