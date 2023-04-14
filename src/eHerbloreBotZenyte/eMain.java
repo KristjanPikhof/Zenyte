@@ -38,7 +38,7 @@ import java.util.List;
         discord = "Esmaabi#5752",
         name = "eHerbloreBotZenyte",
         servers = {"Zenyte"},
-        version = "0.1"
+        version = "0.2"
 )
 
 public class eMain extends TaskScript implements LoopingScript {
@@ -180,15 +180,15 @@ public class eMain extends TaskScript implements LoopingScript {
                 secondIngrediente = 6693; // crushed birdnest
                 botStarted = true;
                 break;
-            case "Super combat potion":
-                nameOfItem = "Super combat potions";
+            case "Superantipoison":
+                nameOfItem = "superantipoisons";
                 updateStatus("Making " + nameOfItem);
                 unfinishedPotionID = 101; // Toadflax potion (unf)
                 secondIngrediente = 235; // crushed birdnest
                 botStarted = true;
                 break;
-            case "Superantipoison":
-                nameOfItem = "superantipoisons";
+            case "Super combat potion":
+                nameOfItem = "super combat potions";
                 updateStatus("Making " + nameOfItem);
                 unfinishedPotionID = 111; // Torstol potion (unf)
                 makingSuperCombat = true;
@@ -282,10 +282,10 @@ public class eMain extends TaskScript implements LoopingScript {
                 ctx.bank.withdraw(unfinishedPotionID, 27);
                 ctx.bank.withdraw(secondIngrediente, SimpleBank.Amount.ALL);
             } else if (makingSuperCombat) {
-                ctx.bank.withdraw(unfinishedPotionID, 6);
-                ctx.bank.withdraw(2440, 6);
-                ctx.bank.withdraw(2436, 6);
-                ctx.bank.withdraw(2442, 6);
+                ctx.bank.withdraw(unfinishedPotionID, 7);
+                ctx.bank.withdraw(2440, 7);
+                ctx.bank.withdraw(2436, 7);
+                ctx.bank.withdraw(2442, 7);
             } else {
                 ctx.bank.withdraw(unfinishedPotionID, 14);
                 ctx.bank.withdraw(secondIngrediente, 14);
@@ -329,7 +329,7 @@ public class eMain extends TaskScript implements LoopingScript {
     }
 
     private void herbStaminaTask() {
-        SimpleItem unfPotionInv = ctx.inventory.populate().filter(unfinishedPotionID).next();
+        SimpleItem unfPotionInv = ctx.inventory.populate().filter(unfinishedPotionID).reverse().next();
         SimpleItem secondIngredienteInv = ctx.inventory.populate().filter(secondIngrediente).next();
         boolean itemsNotNull = unfPotionInv != null || secondIngredienteInv != null;
 
