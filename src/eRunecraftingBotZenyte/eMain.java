@@ -1,13 +1,16 @@
 package eRunecraftingBotZenyte;
 
 
+import eRandomEventSolver.eRandomEventForester;
 import eRunecraftingBotZenyte.listeners.SkillListener;
 import eRunecraftingBotZenyte.listeners.SkillObserver;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleBank;
 import simple.hooks.filters.SimpleSkills;
 import simple.hooks.scripts.Category;
+import simple.hooks.scripts.LoopingScript;
 import simple.hooks.scripts.ScriptManifest;
+import simple.hooks.scripts.task.Task;
 import simple.hooks.simplebot.ChatMessage;
 import simple.hooks.simplebot.Game;
 import simple.hooks.wrappers.SimpleItem;
@@ -19,6 +22,9 @@ import simple.robot.utils.WorldArea;
 import java.awt.*;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 
 
@@ -29,9 +35,9 @@ import java.util.function.BooleanSupplier;
         + "Start near dense runestone for <b>Mining</b> task while <b>Zenyte deposit chest</b> is activated<br>"
         + "Start at Crafting Guild with <b>Max cape</b> for other tasks<br><br> "
         + "For more information check out Esmaabi on SimpleBot!", discord = "Esmaabi#5752",
-        name = "eRunecraftingBotZenyte", servers = { "Zenyte" }, version = "2")
+        name = "eRunecraftingBotZenyte", servers = { "Zenyte" }, version = "2.1")
 
-public class eMain extends Script implements SkillListener {
+public class eMain extends Script implements SkillListener, LoopingScript {
 
 
     //vars
@@ -116,6 +122,24 @@ public class eMain extends Script implements SkillListener {
         return (int)(Math.random() * (maximum - minimum)) + minimum;
     }
 
+    // Tasks
+    private final java.util.List<Task> tasks = new ArrayList<>();
+
+    @Override
+    public boolean prioritizeTasks() {
+        return true;
+    }
+
+    @Override
+    public List<Task> tasks() {
+        return tasks;
+    }
+
+    @Override
+    public int loopDuration() {
+        return 150;
+    }
+
     enum State {
         MINING,
         CRAFTING,
@@ -125,6 +149,8 @@ public class eMain extends Script implements SkillListener {
 
     @Override
     public void onExecute() {
+        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));// Adds tasks to our {task} list for execution
+
         System.out.println("Started eRunecraftingBot Zenyte!");
         started = false;
         status = "Setting up config";
