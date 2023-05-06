@@ -184,7 +184,9 @@ public class eRandomEventForester extends Task {
         if (finishedPortal != null && finishedPortal.validateInteractable() && droppedItemId == -1) {
             finishedPortal.click("Use");
             ctx.sleepCondition(() -> !ctx.players.getLocal().isAnimating(), 5000);
-            resetTaskVariables();
+            if (ctx.players.getLocal().isAnimating()) { // 2110 animation
+                resetTaskVariables();
+            }
         }
     }
 
