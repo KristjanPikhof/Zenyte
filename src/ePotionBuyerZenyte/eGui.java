@@ -1,4 +1,4 @@
-package eHerbloreBotZenyte;
+package ePotionBuyerZenyte;
 
 import javax.swing.*;
 import javax.swing.text.AttributeSet;
@@ -9,14 +9,15 @@ import java.util.Objects;
 
 public class eGui extends JFrame {
     private static final long serialVersionUID = 1L;
-    private static final String[] POTIONS = {"Super energy potion", "Staming potion", "Zamorak brew", "Super strenght potion", "Super attack potion", "Super defence potion", "Ranging potion", "Magic potion", "Prayer potion", "Super restore", "Saradomin brew", "Superantipoison", "Super combat potion"};
-    public static JComboBox<String> potionsComboBox;
+    private static final String[] LOCATIONS = {"Decant", "Bank"};
+
+    private JComboBox<String> locationComboBox;
     private JTextField itemTextField;
     private JButton startButton;
     private JButton pauseButton;
 
     public eGui() {
-        setTitle("eHerbloreBot by Esmaabi");
+        setTitle("ePotionBuyer");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         setIconImage(new ImageIcon(Objects.requireNonNull(getClass().getResource("esmaabi-icon.png"))).getImage());
@@ -48,10 +49,10 @@ public class eGui extends JFrame {
         constraints.gridx = 0; // Resetting x-axis position to 0
 
         // Select location
-        addLabel("Select potions: ", contentPane, constraints, false);
+        addLabel("Select action: ", contentPane, constraints, false);
         constraints.gridx = 1; // Setting x-axis position to 1
-        potionsComboBox = addComboBox(contentPane, constraints);
-        potionsComboBox.setPreferredSize(new Dimension(150, potionsComboBox.getPreferredSize().height));
+        locationComboBox = addComboBox(contentPane, constraints);
+        locationComboBox.setPreferredSize(new Dimension(150, locationComboBox.getPreferredSize().height));
 
         constraints.gridx = 0; // Resetting x-axis position to 0
         constraints.gridy++; // Moving to next row
@@ -92,13 +93,10 @@ public class eGui extends JFrame {
     }
 
     private JComboBox<String> addComboBox(Container container, GridBagConstraints constraints) {
-        JComboBox<String> comboBox = new JComboBox<>(POTIONS);
+        JComboBox<String> comboBox = new JComboBox<>(eGui.LOCATIONS);
         container.add(comboBox, constraints);
         constraints.gridx = 0;
         constraints.gridy++;
-
-        comboBox.addActionListener(e -> eMain.returnItem = getSelectedPotionIndex());
-
         return comboBox;
     }
 
@@ -116,25 +114,25 @@ public class eGui extends JFrame {
         pauseButton.setVisible(true);
         startButton.setVisible(false);
         itemTextField.setEnabled(false);
-        potionsComboBox.setEnabled(false);
-        eMain.returnItem = getSelectedPotionIndex();
+        locationComboBox.setEnabled(false);
+        //eMain.npcId = getNpcTextField().getText();
+        eMain.itemId = getItemId();
     }
 
     private void pauseBot() {
         eMain.botStarted = false;
         pauseButton.setVisible(false);
         startButton.setVisible(true);
-        itemTextField.setEnabled(false);
-        potionsComboBox.setEnabled(true);
+        itemTextField.setEnabled(true);
+        locationComboBox.setEnabled(true);
+    }
+
+    public JComboBox<String> getLocationComboBox() {
+        return locationComboBox;
     }
 
     public JTextField getItemTextField() {
         return itemTextField;
-    }
-
-    public int getSelectedPotionIndex() {
-        int selectedPotionIndex = potionsComboBox.getSelectedIndex();
-        return selectedPotionIndex;
     }
 
     public int getItemId() {

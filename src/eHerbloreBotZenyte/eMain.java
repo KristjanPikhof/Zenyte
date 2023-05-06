@@ -10,6 +10,7 @@ import simple.hooks.scripts.task.Task;
 import simple.hooks.scripts.task.TaskScript;
 import simple.hooks.simplebot.ChatMessage;
 import simple.hooks.wrappers.SimpleItem;
+import simple.hooks.wrappers.SimpleNpc;
 import simple.hooks.wrappers.SimpleObject;
 import simple.hooks.wrappers.SimplePlayer;
 
@@ -45,7 +46,7 @@ public class eMain extends TaskScript implements LoopingScript {
 
     // Constants
     private static final String[] BANK_NAME = {"Bank booth", "Bank chest"};
-    //private static final int BANKER_ID = 10029;
+    private static final String[] BANKER_NAME = {"Banker","Bird's-Eye' Jack", "Arnold Lydspor", "Banker tutor", "Cornelius", "Emerald Benedict", "Eniola", "Fadli", "Financial Wizard", "Financial Seer", "Ghost banker", "Gnome banker", "Gundai", "Jade", "Jumaane", "Magnus Gram", "Nardah Banker", "Odovacar", "Peer the Seer", "Sirsal Banker", "Squire", "TzHaar-Ket-Yil", "TzHaar-Ket-Zuh", "Yusuf"};
 
 
     // Variables
@@ -56,13 +57,60 @@ public class eMain extends TaskScript implements LoopingScript {
     private int count;
     private int unfinishedPotionID;
     public static String status = null;
+    public static int returnItem;
     private static String nameOfItem = null;
     public int secondIngrediente;
     private long lastAnimation = -1;
-    private boolean botStarted = false;
+    public static boolean botStarted;
     private static boolean hidePaint = false;
     private boolean makingSuperCombat = false;
     private boolean makingStamingPotions = false;
+
+    // Gui
+    private static eGui gui;
+    private void initializeGUI() {
+        gui = new eGui();
+        gui.setVisible(true);
+        gui.setLocale(ctx.getClient().getCanvas().getLocale());
+    }
+
+    public enum PotionItems {
+        SUPER_ENERGY_POTIONS("super energy potions", 103, 2970),
+        STAMINA_POTIONS("stamina potions", 3016, 12640),
+        ZAMORAK_BREWS("zamorak brews", 111, 247),
+        SUPER_STRENGTH_POTIONS("super strenght potions", 105, 225),
+        SUPER_ATTACK_POTION("super attack potion", 101, 221),
+        SUPER_DEFENCE_POTIONS("super defence potions", 107, 239),
+        RANGING_POTIONS("ranging potions", 109, 245),
+        MAGIC_POTIONS("magic potions", 2483, 3138),
+        PRAYER_POTIONS("prayer potions", 99, 231),
+        SUPER_RESTORE("super restores", 3004, 223),
+        SARADOMIN_BREWS("saradomin brews", 3002, 6693),
+        SUPERANTIPOISONS("superantipoisons", 101, 235),
+        SUPER_COMBAT_POTIONS("super combat potions", 111, 0); // Set secondIngrediente to 0 since it's not needed for this item
+
+        private final String nameOfItem;
+        private final int unfinishedPotionID;
+        private final int secondIngrediente;
+
+        PotionItems(String nameOfItem, int unfinishedPotionID, int secondIngrediente) {
+            this.nameOfItem = nameOfItem;
+            this.unfinishedPotionID = unfinishedPotionID;
+            this.secondIngrediente = secondIngrediente;
+        }
+
+        public String getNameOfItem() {
+            return nameOfItem;
+        }
+
+        public int getUnfinishedPotionID() {
+            return unfinishedPotionID;
+        }
+
+        public int getSecondIngrediente() {
+            return secondIngrediente;
+        }
+    }
 
     // Tasks
     private final List<Task> tasks = new ArrayList<>();
@@ -81,6 +129,8 @@ public class eMain extends TaskScript implements LoopingScript {
     public void onExecute() {
 
         tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));// Adds tasks to our {task} list for execution
+
+        initializeGUI();
 
         // Other vars
         System.out.println("Started eHerbloreBot!");
@@ -104,100 +154,6 @@ public class eMain extends TaskScript implements LoopingScript {
         count = 0;
         ctx.viewport.angle(270);
         ctx.viewport.pitch(true);
-
-        // Choosing potions to make
-        eGui.eGuiDialogueTarget();
-        String returnItem = eGui.returnItem;
-        switch (returnItem) {
-            case "Super energy potion":
-                nameOfItem = "super energy potions";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 103; //avantoe unf
-                secondIngrediente = 2970; // mort myre fungus
-                botStarted = true;
-                break;
-            case "Staming potion":
-                nameOfItem = "staming potions";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 3016; // Super energy (4)
-                secondIngrediente = 12640; // Amylase crystal
-                makingStamingPotions = true;
-                botStarted = true;
-                break;
-            case "Zamorak brew":
-                nameOfItem = "zamorak brews";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 111; // torstol potion (unf)
-                secondIngrediente = 247; // jangerberries
-                botStarted = true;
-                break;
-            case "Super strenght potion":
-                nameOfItem = "super strenght potions";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 105; // kwuarm potion (unf)
-                secondIngrediente = 225; // Limpwurt root
-                botStarted = true;
-                break;
-            case "Super attack potion":
-                nameOfItem = "super attack potion";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 101; // irit potion (unf)
-                secondIngrediente = 221; // Eye of newt
-                botStarted = true;
-                break;
-            case "Super defence potion":
-                nameOfItem = "super defence potions";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 107; // cadantine potion (unf)
-                secondIngrediente = 239; // white berries
-                botStarted = true;
-                break;
-            case "Ranging potion":
-                nameOfItem = "ranging potions";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 109; // Dwarf weed potion (unf)
-                secondIngrediente = 245; // Wine of zamorak
-                botStarted = true;
-                break;
-            case "Magic potion":
-                nameOfItem = "magic potions";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 2483; // Lantadyme potion (unf)
-                secondIngrediente = 3138; // Wine of zamorak
-                botStarted = true;
-                break;
-            case "Prayer potion":
-                nameOfItem = "prayer potions";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 99;
-                secondIngrediente = 231;
-                botStarted = true;
-                break;
-            case "Saradomin brew":
-                nameOfItem = "saradomin brews";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 3002; // Toadflax potion (unf)
-                secondIngrediente = 6693; // crushed birdnest
-                botStarted = true;
-                break;
-            case "Superantipoison":
-                nameOfItem = "superantipoisons";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 101; // Toadflax potion (unf)
-                secondIngrediente = 235; // crushed birdnest
-                botStarted = true;
-                break;
-            case "Super combat potion":
-                nameOfItem = "super combat potions";
-                updateStatus("Making " + nameOfItem);
-                unfinishedPotionID = 111; // Torstol potion (unf)
-                makingSuperCombat = true;
-                botStarted = true;
-                break;
-            default:
-                updateStatus("Waiting for GUI options");
-                botStarted = false;
-        }
     }
 
     @Override
@@ -205,6 +161,7 @@ public class eMain extends TaskScript implements LoopingScript {
         super.onProcess();
 
         if (!botStarted) {
+            getTaskItem();
             return;
         }
 
@@ -296,15 +253,39 @@ public class eMain extends TaskScript implements LoopingScript {
             return;
         }
 
-        SimpleObject bankChest = ctx.objects.populate().filter(BANK_NAME).nearest().next();
         if (!ctx.bank.bankOpen() && !ctx.players.getLocal().isAnimating()) {
-            if (bankChest != null && bankChest.validateInteractable()) {
+            SimpleObject bankChest = getBankChest();
+            if (bankChest != null) {
                 updateStatus("Refilling supplies");
                 bankChest.click(1);
                 ctx.onCondition(() -> ctx.bank.bankOpen(), 5000);
+            } else {
+                SimpleNpc bankerName = getBanker();
+                if (bankerName != null) {
+                    updateStatus("Refilling supplies");
+                    bankerName.click("Bank");
+                    ctx.onCondition(() -> ctx.bank.bankOpen(), 5000);
+                }
             }
         }
     }
+
+    private SimpleObject getBankChest() {
+        SimpleObject bankChest = ctx.objects.populate().filter(BANK_NAME).nearest().next();
+        if (bankChest != null && bankChest.distanceTo(ctx.players.getLocal()) <= 10 && bankChest.validateInteractable()) {
+            return bankChest;
+        }
+        return null;
+    }
+
+    private SimpleNpc getBanker() {
+        SimpleNpc bankerName = ctx.npcs.populate().filter(BANKER_NAME).nearest().next();
+        if (bankerName != null && bankerName.distanceTo(ctx.players.getLocal()) <= 10 && bankerName.validateInteractable()) {
+            return bankerName;
+        }
+        return null;
+    }
+
 
     // Herblore
 
@@ -375,6 +356,15 @@ public class eMain extends TaskScript implements LoopingScript {
         return unfPotionInv && superStrenght && superAttack && superDefence;
     }
 
+    private void getTaskItem() {
+        PotionItems item = PotionItems.values()[returnItem];
+        nameOfItem = item.getNameOfItem();
+        unfinishedPotionID = item.getUnfinishedPotionID();
+        secondIngrediente = item.getSecondIngrediente();
+        makingStamingPotions = item == PotionItems.STAMINA_POTIONS;
+        makingSuperCombat = item == PotionItems.SUPER_COMBAT_POTIONS;
+    }
+
     //Utility
     public static String currentTime() {
         return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
@@ -397,6 +387,7 @@ public class eMain extends TaskScript implements LoopingScript {
         unfinishedPotionID = 0;
         makingSuperCombat = false;
         makingStamingPotions = false;
+        gui.setVisible(false);
 
         this.ctx.updateStatus("-------------- " + currentTime() + " --------------");
         this.ctx.updateStatus("----------------------");
