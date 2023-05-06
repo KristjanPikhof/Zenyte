@@ -17,6 +17,7 @@ public class eGui extends JFrame implements ActionListener {
     private final JButton pauseButton;
     public static int widgetItem1 = 270;
     public static int widgetItem2;
+    public static String nameOfItem;
 
     public eGui() {
         setTitle("eGlassblowingBot by Esmaabi");
@@ -42,13 +43,22 @@ public class eGui extends JFrame implements ActionListener {
         JLabel descriptionLabel = new JLabel("<html><b>Please read <b>eGlassblowingBot</b> description first!</b></html>");
         topPanel.add(descriptionLabel);
 
-        JLabel descriptionText = new JLabel("<html><br>The most effective glassblowing bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br> " +
+/*        JLabel descriptionText = new JLabel("<html><br>The most effective glassblowing bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br> " +
                 "<ul><li>You must have enough of fire, astral runes & coins in inventory;</li>" +
-                "<li>You must wield <b>any air staff</b>;</li>" +
-                "<li>You must start near charter trader crewmembers;</li>" +
-                "<li>Bot will sell to shop all the crafted items except empty light orb (drop);</li>" +
+                "<li>You can wield <b>any air staff</b>;</li>" +
+                "<li>You must start near <b>charter trader crewmembers</b>;</li>" +
+                "<li>Bot will sell to shop all the crafted items except empty light orb <i>(will drop)</i>;</li>" +
                 "<li>Script will stop if you are out of money / runes.</li></ul><br>" +
-                "For more information check out Esmaabi on SimpleBot!</html>");
+                "For more information check out Esmaabi on SimpleBot!</html>");*/
+        JLabel descriptionText = new JLabel("<html><br>" +
+                "Introducing the most efficient glassblowing bot for Zenyte! " +
+                "<br><br><b>Features and Recommendations:</b><br><br> " + "<ul>" +
+                "<li>Start near <b>charter trader crewmember</b> or bot will stop.</li>" +
+                "<li>The bot will sell all crafted items, except for empty light orbs.</li>" +
+                "<li>It's recommended to wield <b>smoke battlestaff</b> or any elemental staff.</li>" +
+                "<li>Make sure you have enough coins and air/fire/astral runes.</li>" +
+                "<li>The bot will stop if you run out of coins or runes.</li></ul><br>" +
+                "For more information, check out Esmaabi on SimpleBot!</html>");
         topPanel.add(descriptionText);
 
         add(topPanel, BorderLayout.NORTH);
@@ -105,42 +115,10 @@ public class eGui extends JFrame implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == startButton) {
             int selectedIndex = modeSelect.getSelectedIndex();
-            switch (selectedIndex) {
-                case 0:
-                    eMain.status = "Making beer glass";
-                    widgetItem2 = 14;
-                    break;
-                case 1:
-                    eMain.status = "Making empty candle latern";
-                    widgetItem2 = 15;
-                    break;
-                case 2:
-                    eMain.status = "Making empty oil lamp";
-                    widgetItem2 = 16;
-                    break;
-                case 3:
-                    eMain.status = "Making empty vial";
-                    widgetItem2 = 17;
-                    break;
-                case 4:
-                    eMain.status = "Making empty fishbowl";
-                    widgetItem2 = 18;
-                    break;
-                case 5:
-                    eMain.status = "Making enpowered orb";
-                    widgetItem2 = 19;
-                    break;
-                case 6:
-                    eMain.status = "Making latern lens";
-                    widgetItem2 = 20;
-                    break;
-                case 7:
-                    eMain.status = "Making empty light orb";
-                    widgetItem2 = 21;
-                    break;
-                default:
-                    break;
-            }
+            Mode mode = Mode.values()[selectedIndex];
+            nameOfItem = mode.itemName;
+            eMain.status = "Making " + nameOfItem;
+            widgetItem2 = mode.widgetItemNumber;
 
             startButton.setVisible(false);
             pauseButton.setVisible(true);
@@ -151,6 +129,25 @@ public class eGui extends JFrame implements ActionListener {
             pauseButton.setVisible(false);
             startButton.setVisible(true);
             modeSelect.setEnabled(true);
+        }
+    }
+
+    private enum Mode {
+        BEER_GLASS("beer glass", 14),
+        EMPTY_CANDLE_LANTERN("empty candle latern", 15),
+        EMPTY_OIL_LAMP("empty oil lamp", 16),
+        EMPTY_VIAL("empty vial", 17),
+        EMPTY_FISHBOWL("empty fishbowl", 18),
+        EMPOWERED_ORB("enpowered orb", 19),
+        LANTERN_LENS("latern lens", 20),
+        EMPTY_LIGHT_ORB("empty light orb", 21);
+
+        private final String itemName;
+        private final int widgetItemNumber;
+
+        Mode(String itemName, int widgetItemNumber) {
+            this.itemName = itemName;
+            this.widgetItemNumber = widgetItemNumber;
         }
     }
 

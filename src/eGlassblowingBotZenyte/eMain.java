@@ -1,5 +1,6 @@
 package eGlassblowingBotZenyte;
 
+import eRandomEventSolver.eRandomEventForester;
 import simple.hooks.filters.SimpleShop;
 import simple.hooks.filters.SimpleSkills;
 import simple.hooks.scripts.Category;
@@ -17,19 +18,22 @@ import simple.hooks.wrappers.SimpleWidget;
 import java.awt.*;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @ScriptManifest(author = "Esmaabi", category = Category.CRAFTING,
-        description = "<br>The most effective glassblowing bot on Zenyte! <br><br><b>Features & recommendations:</b><br>" +
-                "<ul><li>You must have enough coins & fire / astral runes in inventory;</li>" +
-                "<li>You must wield <b>any air staff</b>;</li>" +
-                "<li>You must start near charter trader crewmembers;</li>" +
-                "<li>Bot will sell to shop all the crafted items except empty light orb (drop);</li>" +
-                "<li>Script will stop if you are out of money or runes.</li></ul>",
+        description = "<html><br>" +
+                "Introducing the most efficient glassblowing bot for Zenyte! " +
+                "<br><br><b>Features and Recommendations:</b><br><br> " + "<ul>" +
+                "<li>Start near <b>charter trader crewmember</b> or bot will stop.</li>" +
+                "<li>The bot will sell all crafted items, except for empty light orbs.</li>" +
+                "<li>It's recommended to wield <b>smoke battlestaff</b> or any elemental staff.</li>" +
+                "<li>Make sure you have enough coins and air/fire/astral runes.</li>" +
+                "<li>The bot will stop if you run out of coins or runes.</li></ul><br>" +
+                "For more information, check out Esmaabi on SimpleBot!</html>",
         discord = "Esmaabi#5752",
-        name = "eGlassblowingBotZenyte", servers = { "Zenyte" }, version = "1")
+        name = "eGlassblowingBotZenyte", servers = { "Zenyte" }, version = "2")
 
 public class eMain extends TaskScript implements LoopingScript {
 
@@ -41,15 +45,17 @@ public class eMain extends TaskScript implements LoopingScript {
     private int currentExp;
     public static String status = null;
     private long lastAnimation = -1;
-    private long lastSell = -1;
+
     public static boolean started;
+    private static boolean hidePaint = false;
 
     //items
-    private final int[] craftingItems = {1919, 4527, 4525, 229, 6667, 567, 4542};
-    private final int blowingPipe = 1785;
-    private final int moltenGlass = 1775;
-    private final int bucketOfSand = 1783;
-    private final int sodaAsh = 1781;
+    private final Set<Integer> craftingItems = new HashSet<>(Arrays.asList(1919, 4527, 4525, 229, 6667, 567, 4542));
+    private static final int blowingPipe = 1785;
+    private static final int moltenGlass = 1775;
+    private static final int bucketOfSand = 1783;
+    private static final int sodaAsh = 1781;
+    private static final int REQUIRED_ITEMS = 10;
 
     public static String currentTime() {
         return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
@@ -71,7 +77,7 @@ public class eMain extends TaskScript implements LoopingScript {
     @Override
     public void onExecute() {
 
-        tasks.addAll(Arrays.asList());
+        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));
 
         System.out.println("Started eGlassblowingBot!");
 
@@ -126,7 +132,7 @@ public class eMain extends TaskScript implements LoopingScript {
         }
 
         if (!started) {
-            status = "Script paused, choose mode";
+            status = "Choose mode and start";
 
         } else {
 
@@ -137,29 +143,19 @@ public class eMain extends TaskScript implements LoopingScript {
                 ctx.onCondition(() -> ctx.inventory.populate().filter(10980).isEmpty(), 200, 10);
             }
 
-            if (!ctx.npcs.populate().filter("Trader Crewmember").isEmpty()) {
-
-                    if (ctx.inventory.populate().filter(moltenGlass, bucketOfSand, sodaAsh).isEmpty() && (System.currentTimeMillis() > (lastSell + 3000))) {
-                        shoppingTask();
-
-                    } else if (ctx.shop.shopOpen() && !ctx.inventory.populate().filter(bucketOfSand, sodaAsh).isEmpty()) {
-                        lastAnimation = System.currentTimeMillis();
-                        loopBroken();
-                    }
-
-            } else {
-                status = "Trader Crewmember not found";
-                ctx.updateStatus(currentTime() + " Trader Crewmember not found");
-                ctx.updateStatus(currentTime() + " Stopping script");
-                ctx.sleep(2400);
-                ctx.stopScript();
+            if (ctx.inventory.populate().filter(moltenGlass, bucketOfSand, sodaAsh).isEmpty()) {
+                if (ctx.shop.shopOpen()) {
+                    shoppingTask();
+                } else {
+                    openShopTask();
+                }
             }
 
             if (ctx.inventory.populate().filter(moltenGlass).isEmpty() && (!ctx.inventory.populate().filter(bucketOfSand).isEmpty()
                     && !ctx.inventory.populate().filter(sodaAsh).isEmpty())) { // Making molten glass
 
                 if (ctx.shop.shopOpen()) {
-                    status = "Closing shop";
+                    updateStatus("Closing shop");
                     ctx.shop.closeShop();
                 }
 
@@ -191,7 +187,7 @@ public class eMain extends TaskScript implements LoopingScript {
                     }
 
                     if (ctx.dialogue.dialogueOpen()) {
-                        status = "Choosing item to make";
+                        updateStatus("Making " + eGui.nameOfItem);
                         SimpleWidget makeAllButton = ctx.widgets.getWidget(270, 12); //Make ALL button
                         SimpleWidget itemToMake = ctx.widgets.getWidget(eGui.widgetItem1, eGui.widgetItem2); //Item from GUI
                         if (itemToMake.validateInteractable() && !itemToMake.isHidden()) {
@@ -210,6 +206,7 @@ public class eMain extends TaskScript implements LoopingScript {
     }
 
     private void sellingGoods() {
+        updateStatus("Selling items");
         for (int itemId : craftingItems) {
             if (!ctx.inventory.populate().filter(itemId).isEmpty()) {
                 ctx.shop.sell(itemId, SimpleShop.Amount.FIFTY);
@@ -218,62 +215,73 @@ public class eMain extends TaskScript implements LoopingScript {
         }
     }
 
-    private void shoppingTask() {
+    private void openShopTask() {
         if (!ctx.shop.shopOpen()) {
-            status = "Opening shop";
+            updateStatus("Opening shop");
             SimpleNpc traderCrew = ctx.npcs.populate().filter("Trader Crewmember").filterHasAction("Trade").nearest().next();
             if (traderCrew != null && traderCrew.validateInteractable()) {
                 ctx.viewport.turnTo(traderCrew);
                 traderCrew.click("Trade", "Trader Crewmember");
-                ctx.onCondition(() -> ctx.shop.shopOpen(), 100, 10);
+                CompletableFuture<Boolean> shopOpenFuture = CompletableFuture.supplyAsync(() -> ctx.onCondition(() -> ctx.shop.shopOpen(), 100, 10));
+                shopOpenFuture.join();
+            } else {
+                updateStatus("Charter Trader not found");
+                ctx.sleep(5000);
+                updateStatus("Stopping script");
+                ctx.stopScript();
             }
-            lastSell = System.currentTimeMillis();
-            return;
         }
+    }
+
+    private void shoppingTask() {
 
         if (ctx.shop.shopOpen()) {
-
             sellingGoods();
 
-            if (ctx.inventory.populate().filter(blowingPipe).isEmpty()) {
-                status = "Buying glassblowing pipe";
-                ctx.shop.buy(blowingPipe, SimpleShop.Amount.ONE);
-                ctx.onCondition(() -> !ctx.inventory.populate().filter(blowingPipe).isEmpty(), 100, 10);
-            }
+            CompletableFuture<Void> buyItemsFuture = CompletableFuture.runAsync(() -> {
+                int blowingPipeCount = ctx.inventory.populate().filter(blowingPipe).population();
+                int sandCount = ctx.inventory.populate().filter(bucketOfSand).population();
+                int sodaAshCount = ctx.inventory.populate().filter(sodaAsh).population();
 
-            int[] craftRequirements = {bucketOfSand, sodaAsh};
-            String[] itemNames = {"buckets of sand", "soda ashes"};
-            for (int i = 0; i < craftRequirements.length; i++) {
-                if (ctx.inventory.populate().filter(craftRequirements[i]).isEmpty()) {
-                    status = "Buying " + itemNames[i];
-                    ctx.shop.buy(craftRequirements[i], SimpleShop.Amount.TEN);
-                    int finalItems = i;
-                    ctx.onCondition(() -> !ctx.inventory.populate().filter(craftRequirements[finalItems]).isEmpty(), 100, 10);
+                if (blowingPipeCount < 1) {
+                    buyItem(blowingPipe, SimpleShop.Amount.ONE, "glassblowing pipe");
                 }
-            }
+
+                if (sandCount < REQUIRED_ITEMS) {
+                    buyItem(bucketOfSand, SimpleShop.Amount.TEN, "soda ashes");
+                }
+
+                if (sodaAshCount < REQUIRED_ITEMS) {
+                    buyItem(sodaAsh, SimpleShop.Amount.TEN,"buckets of sand");
+                }
+            });
+
+            buyItemsFuture.join();
 
             int sandPopulation = ctx.inventory.populate().filter(bucketOfSand).population();
             int sodaAshPopulation = ctx.inventory.populate().filter(sodaAsh).population();
 
-            if (sandPopulation == 10 && sodaAshPopulation == 10) {
-                status = "Closing shop";
+            if (sandPopulation == REQUIRED_ITEMS && sodaAshPopulation == REQUIRED_ITEMS) {
+                updateStatus("Closing shop");
                 ctx.shop.closeShop();
             }
         }
     }
 
-
-    private void loopBroken() {
-        status = "Loop broken. Starting over";
-        int[] craftingRequirements = {bucketOfSand, sodaAsh, blowingPipe};
-        for (int itemId : craftingRequirements) {
-            if (!ctx.inventory.populate().filter(itemId).isEmpty()) {
-                ctx.shop.sell(itemId, SimpleShop.Amount.FIFTY);
-                ctx.onCondition(() -> !ctx.inventory.populate().filter(itemId).isEmpty(), 100, 10);
-            }
-        }
+    private void buyItem(int itemId, SimpleShop.Amount amount, String itemName) {
+        updateStatus("Buying " + itemName);
+        ctx.shop.buy(itemId, amount);
+        CompletableFuture<Void> itemBoughtFuture = CompletableFuture.runAsync(() -> {
+            ctx.onCondition(() -> !ctx.inventory.populate().filter(itemId).isEmpty(), 100, 10);
+        });
+        itemBoughtFuture.join();
     }
 
+    private void updateStatus(String newStatus) {
+        status = newStatus;
+        ctx.updateStatus(status);
+        System.out.println(status);
+    }
 
     @Override
     public void onTerminate() {
@@ -319,30 +327,48 @@ public class eMain extends TaskScript implements LoopingScript {
         return 200;
     }
 
-    @Override
     public void paint(Graphics g) {
-        Color PhilippineRed = new Color(196, 18, 48);
-        Color RaisinBlack = new Color(35, 31, 32, 127);
-        g.setColor(RaisinBlack);
-        g.fillRect(5, 120, 200, 110);
-        g.setColor(PhilippineRed);
-        g.drawRect(5, 120, 200, 110);
-        g.setColor(PhilippineRed);
-        g.drawString("eGlassblowingBot by Esmaabi", 15, 135);
-        g.setColor(Color.WHITE);
+        // Check if mouse is hovering over the paint
+        Point mousePos = ctx.mouse.getPoint();
+        if (mousePos != null) {
+            Rectangle paintRect = new Rectangle(5, 120, 200, 110);
+            hidePaint = paintRect.contains(mousePos.getLocation());
+        }
+
+        // Get runtime and skill information
         long runTime = System.currentTimeMillis() - this.startTime;
         long currentSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.CRAFTING);
         long currentSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.CRAFTING);
-        long SkillLevelsGained = currentSkillLevel - this.startingSkillLevel;
-        long SkillExpGained = currentSkillExp - this.startingSkillExp;
-        long SkillExpPerHour = (int)((SkillExpGained * 3600000D) / runTime);
-        long ActionsPerHour = (int) (count / ((System.currentTimeMillis() - this.startTime) / 3600000.0D));
-        g.drawString("Runtime: " + formatTime(runTime), 15, 150);
-        g.drawString("Starting Level: " + this.startingSkillLevel + " (+" + SkillLevelsGained + ")", 15, 165);
-        g.drawString("Current Level: " + currentSkillLevel, 15, 180);
-        g.drawString("Exp gained: " + SkillExpGained + " (" + (SkillExpPerHour / 1000L) + "k" + " xp/h)", 15, 195);
-        g.drawString("Actions made: " + count + " (" + ActionsPerHour + " per/h)", 15, 210);
-        g.drawString("Status: " + status, 15, 225);
+        long skillLevelsGained = currentSkillLevel - this.startingSkillLevel;
+        long skillExpGained = currentSkillExp - this.startingSkillExp;
+
+        // Calculate experience and actions per hour
+        long skillExpPerHour = skillExpGained * 3600000L / runTime;
+        long actionsPerHour = count * 3600000L / (System.currentTimeMillis() - this.startTime);
+
+        // Set up colors
+        Color philippineRed = new Color(196, 18, 48);
+        Color raisinBlack = new Color(35, 31, 32, 127);
+
+        // Draw paint if not hidden
+        if (!hidePaint) {
+            g.setColor(raisinBlack);
+            g.fillRoundRect(5, 120, 200, 110, 20, 20);
+
+            g.setColor(philippineRed);
+            g.drawRoundRect(5, 120, 200, 110, 20, 20);
+
+            g.setColor(philippineRed);
+            g.drawString("eGlassblowingBot by Esmaabi", 15, 135);
+            g.setColor(Color.WHITE);
+            g.drawString("Runtime: " + formatTime(runTime), 15, 150);
+            g.drawString("Skill Level: " + this.startingSkillLevel + " (+" + skillLevelsGained + "), started at " + currentSkillLevel, 15, 165);
+            g.drawString("Current Exp: " + currentSkillExp, 15, 180);
+            g.drawString("Exp gained: " + skillExpGained + " (" + (skillExpPerHour / 1000L) + "k xp/h)", 15, 195);
+            g.drawString("Actions made: " + count + " (" + actionsPerHour + " per/h)", 15, 210);
+            g.drawString("Status: " + status, 15, 225);
+
+        }
     }
 
     private String formatTime(long ms) {
