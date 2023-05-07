@@ -1,27 +1,34 @@
 package ePotionBuyerZenyte;
 
+import eRandomEventSolver.eRandomEventForester;
 import simple.hooks.filters.SimpleShop;
 import simple.hooks.scripts.Category;
 import simple.hooks.scripts.ScriptManifest;
+import simple.hooks.scripts.task.Task;
+import simple.hooks.scripts.task.TaskScript;
 import simple.hooks.simplebot.ChatMessage;
 import simple.hooks.wrappers.SimpleNpc;
+import simple.hooks.wrappers.SimpleObject;
 import simple.hooks.wrappers.SimpleWidget;
-import simple.robot.script.Script;
 
 import java.awt.*;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.*;
 
 @ScriptManifest(author = "Esmaabi", category = Category.MONEYMAKING, description =
         "<br>Most effective potion buyer bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br>" +
         "<ul>" +
-        "<li>This bot will buy any potion from John;</li>" +
-        "<li>You must start at home with money in inventory;</li>" +
-        "<li>Insert the potion ID in GUI and bot will start buying</li>" +
-        "<li>Bot will stop if out of money.</li></ul>", discord = "Esmaabi#5752",
-        name = "ePotionBuyerZenyte", servers = { "Zenyte" }, version = "0.1")
+        "<li>This bot will buy any potion from John and decant it;</li>" +
+        "<li>You must start at home with coins in inventory;</li>" +
+        "<li>It's also possible to bank other resources from John</li>" +
+        "<li>Insert the item ID in GUI and choose starting mode to start</li>" +
+        "<li>The bot will stop if you run out of coins.</li></ul><br>" +
+        "For more information, check out Esmaabi on SimpleBot!", discord = "Esmaabi#5752",
+        name = "ePotionBuyerZenyte", servers = { "Zenyte" }, version = "1")
 
-public class eMain extends Script {
+public class eMain extends TaskScript {
 
     // Variables
     private static eGui gui;
@@ -31,11 +38,12 @@ public class eMain extends Script {
     public static boolean botStarted = false;
     public static boolean hidePaint = false;
     public static boolean outOfMoney = false;
+    public static String actionName = null;
 
     // Constants
     public static int itemId;
-    static String NPC_BANKER = "Banker";
-    static String bankOpenAction = "Bank";
+    private static final String[] BANK_TYPES = {"Bank booth", "Bank chest", "Bank deposit box"};
+    private static final Set<String> BANKER_NAME_SET = new HashSet<>(Arrays.asList("Banker","Bird's-Eye' Jack", "Arnold Lydspor", "Banker tutor", "Cornelius", "Emerald Benedict", "Eniola", "Fadli", "Financial Wizard", "Financial Seer", "Ghost banker", "Gnome banker", "Gundai", "Jade", "Jumaane", "Magnus Gram", "Nardah Banker", "Odovacar", "Peer the Seer", "Sirsal Banker", "Squire", "TzHaar-Ket-Yil", "TzHaar-Ket-Zuh", "Yusuf"));
     private final static int NPC_ZAHUR = 4753;
 
     private final static int NPC_JOHN = 10007;
@@ -47,8 +55,22 @@ public class eMain extends Script {
         gui.setLocale(ctx.getClient().getCanvas().getLocale());
     }
 
+    //Tasks
+    List<Task> tasks = new ArrayList<>();
+
+    @Override
+    public boolean prioritizeTasks() {
+        return true;
+    }
+
+    @Override
+    public List<Task> tasks() {
+        return tasks;
+    }
+
     @Override
     public void onExecute() {
+        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));
         System.out.println("Started ePotionBuyer!");
         initializeGUI();
 
@@ -68,7 +90,11 @@ public class eMain extends Script {
                 if (buyItem == 0) {
                     buyingTask(NPC_JOHN, itemId);
                 } else if (buyItem > 0) {
-                    decantTask(NPC_ZAHUR);
+                    if (Objects.equals(actionName, "Decant")) {
+                        decantTask(NPC_ZAHUR);
+                    } else if (Objects.equals(actionName, "Bank")) {
+                        openingBank();
+                    }
                 }
             } else {
                 updateStatus("Out of GP. Stopping bot.");
@@ -93,7 +119,7 @@ public class eMain extends Script {
             SimpleNpc tradeTo = ctx.npcs.populate().filter(npcId).nearest().next();
             if (tradeTo != null && tradeTo.validateInteractable()) {
                 tradeTo.click("Trade");
-                ctx.sleepCondition(() -> !ctx.shop.shopOpen(), 1200);
+                ctx.sleepCondition(() -> ctx.shop.shopOpen(), 5000);
             }
         }
 
@@ -141,9 +167,57 @@ public class eMain extends Script {
             if (zahurNpc != null && zahurNpc.validateInteractable()) {
                 updateStatus("Clicking Zahur");
                 zahurNpc.click("Decant");
+                ctx.sleepCondition(() -> dialogueOption != null, 1200);
             }
         }
     }
+
+    // Banking
+    private void openingBank() {
+
+        if (ctx.shop.shopOpen()) {
+            updateStatus("Closing shop");
+            ctx.shop.closeShop();
+        }
+
+        if (ctx.bank.bankOpen()) {
+            updateStatus("Depositing items");
+            ctx.bank.depositAllExcept(995); // Coins
+            updateStatus("Closing bank");
+            ctx.bank.closeBank();
+        } else {
+            SimpleObject bankObject = getBankObject();
+            if (bankObject != null) {
+                updateStatus("Banking");
+                bankObject.click(1);
+                ctx.sleepCondition(() -> ctx.bank.bankOpen(), 5000);
+            } else {
+                SimpleNpc banker = getBanker();
+                if (banker != null) {
+                    updateStatus("Banking");
+                    banker.click("Bank");
+                    ctx.sleepCondition(() -> ctx.bank.bankOpen(), 5000);
+                }
+            }
+        }
+    }
+
+    private SimpleObject getBankObject() {
+        SimpleObject bankObject = ctx.objects.populate().filter(obj -> Arrays.asList(BANK_TYPES).contains(obj.getName())).nearest().next();
+        if (bankObject != null && bankObject.distanceTo(ctx.players.getLocal()) <= 15 && bankObject.validateInteractable()) {
+            return bankObject;
+        }
+        return null;
+    }
+
+    private SimpleNpc getBanker() {
+        SimpleNpc banker = ctx.npcs.populate().filter(npc -> BANKER_NAME_SET.contains(npc.getName())).nearest().next();
+        if (banker != null && banker.distanceTo(ctx.players.getLocal()) <= 15 && banker.validateInteractable()) {
+            return banker;
+        }
+        return null;
+    }
+
 
 
     private int getItemPopulation() {
@@ -240,16 +314,6 @@ public class eMain extends Script {
             g.drawString("Bought: " + count + " (" + actionsPerHour + " per/h)", 15, 175);
             g.drawString("Status: " + status, 15, 190);
         }
-    }
-
-    private String formatTime(long ms) {
-        long s = ms / 1000L;
-        long m = s / 60L;
-        long h = m / 60L;
-        s %= 60L;
-        m %= 60L;
-        h %= 24L;
-        return String.format("%02d:%02d:%02d", h, m, s);
     }
 
     public String formatToSeconds(long ms) {

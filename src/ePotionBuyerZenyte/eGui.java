@@ -5,13 +5,14 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.PlainDocument;
 import java.awt.*;
+import java.util.Arrays;
 import java.util.Objects;
 
 public class eGui extends JFrame {
     private static final long serialVersionUID = 1L;
-    private static final String[] LOCATIONS = {"Decant", "Bank"};
+    public static final String[] ACTION = {"Decant", "Bank"};
 
-    private JComboBox<String> locationComboBox;
+    private JComboBox<String> actionComboBox;
     private JTextField itemTextField;
     private JButton startButton;
     private JButton pauseButton;
@@ -48,11 +49,11 @@ public class eGui extends JFrame {
         constraints.gridy++; // Moving to next row
         constraints.gridx = 0; // Resetting x-axis position to 0
 
-        // Select location
+        // Select action
         addLabel("Select action: ", contentPane, constraints, false);
         constraints.gridx = 1; // Setting x-axis position to 1
-        locationComboBox = addComboBox(contentPane, constraints);
-        locationComboBox.setPreferredSize(new Dimension(150, locationComboBox.getPreferredSize().height));
+        actionComboBox = addComboBox(contentPane, constraints);
+        actionComboBox.setPreferredSize(new Dimension(150, actionComboBox.getPreferredSize().height));
 
         constraints.gridx = 0; // Resetting x-axis position to 0
         constraints.gridy++; // Moving to next row
@@ -93,7 +94,7 @@ public class eGui extends JFrame {
     }
 
     private JComboBox<String> addComboBox(Container container, GridBagConstraints constraints) {
-        JComboBox<String> comboBox = new JComboBox<>(eGui.LOCATIONS);
+        JComboBox<String> comboBox = new JComboBox<>(eGui.ACTION);
         container.add(comboBox, constraints);
         constraints.gridx = 0;
         constraints.gridy++;
@@ -114,9 +115,13 @@ public class eGui extends JFrame {
         pauseButton.setVisible(true);
         startButton.setVisible(false);
         itemTextField.setEnabled(false);
-        locationComboBox.setEnabled(false);
+        actionComboBox.setEnabled(false);
         //eMain.npcId = getNpcTextField().getText();
         eMain.itemId = getItemId();
+        String selectedAction = (String) actionComboBox.getSelectedItem();
+        if (Arrays.asList(eGui.ACTION).contains(selectedAction)) {
+            eMain.actionName = selectedAction;
+        }
     }
 
     private void pauseBot() {
@@ -124,11 +129,11 @@ public class eGui extends JFrame {
         pauseButton.setVisible(false);
         startButton.setVisible(true);
         itemTextField.setEnabled(true);
-        locationComboBox.setEnabled(true);
+        actionComboBox.setEnabled(true);
     }
 
-    public JComboBox<String> getLocationComboBox() {
-        return locationComboBox;
+    public JComboBox<String> getActionComboBox() {
+        return actionComboBox;
     }
 
     public JTextField getItemTextField() {
