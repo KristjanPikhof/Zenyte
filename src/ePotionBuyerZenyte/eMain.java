@@ -3,6 +3,7 @@ package ePotionBuyerZenyte;
 import eRandomEventSolver.eRandomEventForester;
 import simple.hooks.filters.SimpleShop;
 import simple.hooks.scripts.Category;
+import simple.hooks.scripts.LoopingScript;
 import simple.hooks.scripts.ScriptManifest;
 import simple.hooks.scripts.task.Task;
 import simple.hooks.scripts.task.TaskScript;
@@ -28,7 +29,7 @@ import java.util.*;
         "For more information, check out Esmaabi on SimpleBot!", discord = "Esmaabi#5752",
         name = "ePotionBuyerZenyte", servers = { "Zenyte" }, version = "1")
 
-public class eMain extends TaskScript {
+public class eMain extends TaskScript implements LoopingScript {
 
     // Variables
     private static eGui gui;
@@ -83,6 +84,7 @@ public class eMain extends TaskScript {
 
     @Override
     public void onProcess() {
+        super.onProcess();
 
         if (botStarted) {
             if (!outOfMoney) {
@@ -321,4 +323,8 @@ public class eMain extends TaskScript {
         return String.format("%.2f", seconds) + "sec";
     }
 
+    @Override
+    public int loopDuration() {
+        return 150;
+    }
 }

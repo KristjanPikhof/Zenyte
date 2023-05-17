@@ -1,19 +1,25 @@
 package eSacredEelBotZenyte;
 
 
+import eRandomEventSolver.eRandomEventForester;
+import eRunecraftingBotZenyte.listeners.SkillListener;
 import eSacredEelBotZenyte.listeners.SkillObserver;
-import eSacredEelBotZenyte.listeners.SkillListener;
 import simple.hooks.filters.SimpleSkills;
 import simple.hooks.scripts.Category;
+import simple.hooks.scripts.LoopingScript;
 import simple.hooks.scripts.ScriptManifest;
+import simple.hooks.scripts.task.Task;
+import simple.hooks.scripts.task.TaskScript;
 import simple.hooks.simplebot.ChatMessage;
 import simple.hooks.wrappers.SimpleItem;
 import simple.hooks.wrappers.SimpleNpc;
-import simple.robot.script.Script;
 
 import java.awt.*;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 
 
@@ -26,7 +32,7 @@ import java.util.function.BooleanSupplier;
         + "For more information check out Esmaabi on SimpleBot!", discord = "Esmaabi#5752",
         name = "eSacredEelBotZenyte", servers = { "Zenyte" }, version = "0.1")
 
-public class eMain extends Script implements SkillListener {
+public class eMain extends TaskScript implements SkillListener, LoopingScript {
 
 
     //vars
@@ -65,14 +71,33 @@ public class eMain extends Script implements SkillListener {
     private long startingSkillLevelFishing, startingSkillLevelCooking;
     private long startingSkillExpFishing, startingSkillExpCooking;
 
+    @Override
+    public int loopDuration() {
+        return 150;
+    }
+
     enum State{
         FISHING,
         COOKING,
         WAITING,
     }
 
+    //Tasks
+    java.util.List<Task> tasks = new ArrayList<>();
+
+    @Override
+    public boolean prioritizeTasks() {
+        return true;
+    }
+
+    @Override
+    public List<Task> tasks() {
+        return tasks;
+    }
+
     @Override
     public void onExecute() {
+        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));
         System.out.println("Started eSacredEelBot Zenyte!");
         started = false;
         status = "Setting up config";
@@ -109,13 +134,14 @@ public class eMain extends Script implements SkillListener {
                 return runningSkillListener;
             }
         });
-        skillObserver.addListener(this);
+        skillObserver.addListener((eSacredEelBotZenyte.listeners.SkillListener) this);
         skillObserver.start();
 
     }
 
     @Override
     public void onProcess() {
+        super.onProcess();
         if (!started) {
             playerState = State.WAITING;
 

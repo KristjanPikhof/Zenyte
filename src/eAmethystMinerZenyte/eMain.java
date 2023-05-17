@@ -1,5 +1,6 @@
 package eAmethystMinerZenyte;
 
+import eRandomEventSolver.eRandomEventForester;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleSkills;
 import simple.hooks.scripts.Category;
@@ -16,7 +17,7 @@ import java.awt.*;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -29,7 +30,7 @@ import java.util.concurrent.ThreadLocalRandom;
                 "<li>Dragon pickaxe special attack supported;</li>" +
                 "<li>Random sleeping included!</li></ul>",
         discord = "Esmaabi#5752",
-        name = "eAmethystMinerZenyte", servers = { "Zenyte" }, version = "0.2")
+        name = "eAmethystMinerZenyte", servers = { "Zenyte" }, version = "0.3")
 
 public class eMain extends TaskScript implements LoopingScript {
 
@@ -80,7 +81,7 @@ public class eMain extends TaskScript implements LoopingScript {
     @Override
     public void onExecute() {
 
-        tasks.addAll(Collections.emptyList());
+        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));
 
         System.out.println("Started eAmethystMiner!");
 

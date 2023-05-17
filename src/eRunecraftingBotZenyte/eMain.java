@@ -11,12 +11,12 @@ import simple.hooks.scripts.Category;
 import simple.hooks.scripts.LoopingScript;
 import simple.hooks.scripts.ScriptManifest;
 import simple.hooks.scripts.task.Task;
+import simple.hooks.scripts.task.TaskScript;
 import simple.hooks.simplebot.ChatMessage;
 import simple.hooks.simplebot.Game;
 import simple.hooks.wrappers.SimpleItem;
 import simple.hooks.wrappers.SimpleObject;
 import simple.hooks.wrappers.SimpleWidget;
-import simple.robot.script.Script;
 import simple.robot.utils.WorldArea;
 
 import java.awt.*;
@@ -37,7 +37,7 @@ import java.util.function.BooleanSupplier;
         + "For more information check out Esmaabi on SimpleBot!", discord = "Esmaabi#5752",
         name = "eRunecraftingBotZenyte", servers = { "Zenyte" }, version = "2.1")
 
-public class eMain extends Script implements SkillListener, LoopingScript {
+public class eMain extends TaskScript implements SkillListener, LoopingScript {
 
 
     //vars
@@ -197,6 +197,7 @@ public class eMain extends Script implements SkillListener, LoopingScript {
 
     @Override
     public void onProcess() {
+        super.onProcess();
         if (!started) {
             playerState = State.WAITING;
             return;

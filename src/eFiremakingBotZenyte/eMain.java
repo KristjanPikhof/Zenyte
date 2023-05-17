@@ -1,21 +1,24 @@
 package eFiremakingBotZenyte;
 
+import eRandomEventSolver.eRandomEventForester;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleBank;
 import simple.hooks.filters.SimpleSkills;
 import simple.hooks.scripts.Category;
+import simple.hooks.scripts.LoopingScript;
 import simple.hooks.scripts.ScriptManifest;
+import simple.hooks.scripts.task.Task;
+import simple.hooks.scripts.task.TaskScript;
 import simple.hooks.simplebot.ChatMessage;
 import simple.hooks.wrappers.SimpleItem;
 import simple.hooks.wrappers.SimpleNpc;
 import simple.hooks.wrappers.SimpleWidget;
-import simple.robot.script.Script;
 
 import java.awt.*;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.List;
 
 @ScriptManifest(author = "Esmaabi", category = Category.FIREMAKING, description =
         "<br>Most effective firemaking bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br>" +
@@ -23,9 +26,9 @@ import java.util.Map;
         "<li>You must start at chosen bank without logs in inventory;</li>" +
         "<li>Supported locations: Falador East, Varrock East, Grand Exchange</li>" +
         "<li>Supported trees: all normal trees from redwood to logs.</li></ul>", discord = "Esmaabi#5752",
-        name = "eFiremakingBotZenyte", servers = { "Zenyte" }, version = "2.1")
+        name = "eFiremakingBotZenyte", servers = { "Zenyte" }, version = "2.2")
 
-public class eMain extends Script {
+public class eMain extends TaskScript implements LoopingScript {
     private static eGui gui;
     private long startTime = 0L;
     private long startingSkillLevel;
@@ -70,6 +73,11 @@ public class eMain extends Script {
             new WorldPoint(3177, 3476, 0)
     };
 
+    @Override
+    public int loopDuration() {
+        return 150;
+    }
+
     public enum FiremakingLocations {
         FALADOR_EAST(PATH_FALADOR_EAST),
         VARROCK_EAST(PATH_VARROCK_EAST),
@@ -92,8 +100,22 @@ public class eMain extends Script {
         gui.setLocale(ctx.getClient().getCanvas().getLocale());
     }
 
+    //Tasks
+    List<Task> tasks = new ArrayList<>();
+
+    @Override
+    public boolean prioritizeTasks() {
+        return true;
+    }
+
+    @Override
+    public List<Task> tasks() {
+        return tasks;
+    }
+
     @Override
     public void onExecute() {
+        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));
         System.out.println("Started eFiremakingBot!");
         initializeGUI();
 
@@ -114,6 +136,7 @@ public class eMain extends Script {
 
     @Override
     public void onProcess() {
+        super.onProcess();
 
         if (botStarted) {
 
