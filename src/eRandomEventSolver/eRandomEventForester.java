@@ -28,7 +28,7 @@ public class eRandomEventForester extends Task {
 
     // Constants
 
-    private static final int SPACE_BUTTON = KeyEvent.VK_SPACE;
+    public static final int SPACE_BUTTON = KeyEvent.VK_SPACE;
 
     // Forest area
     public static final WorldArea forestArea = new WorldArea(new WorldPoint(2586, 4788, 0), new WorldPoint(2618, 4762, 0));
