@@ -19,6 +19,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
@@ -31,7 +32,7 @@ import java.util.regex.Pattern;
         "<li>It's recommended to wear full Graceful or have few stamina potions in inventory</li>" +
         "<li>The bot will stop if you run out of noted logs or coins.</li></ul><br>" +
         "For more information, check out Esmaabi on SimpleBot!", discord = "Esmaabi#5752",
-        name = "ePlankMakerBotZenyte", servers = { "Zenyte" }, version = "1")
+        name = "ePlankMakerBotZenyte", servers = { "Zenyte" }, version = "1.1")
 
 public class eMain extends TaskScript implements LoopingScript {
 
@@ -41,7 +42,6 @@ public class eMain extends TaskScript implements LoopingScript {
     private final static int INVENTORY_BAG_WIDGET_ID = 548;
     private final static int INVENTORY_BAG_CHILD_ID = 58;
     private final WorldPoint DEPOSIT_BOX_LOCATION = new WorldPoint(1649, 3494, 0);
-    private final WorldPoint NEAR_DEPOSIT_BOX_LOCATION = new WorldPoint(1649, 3495, 0);
     private final WorldPoint NEAR_SAWMILL_LOCATION = new WorldPoint(1624, 3500, 0);
 
     // Variables
@@ -242,7 +242,7 @@ public class eMain extends TaskScript implements LoopingScript {
     private void noteTask(int woodNoted, int wood, int plank, String name) {
         SimpleObject depositBox = ctx.objects.populate().filter(26254).nearest(DEPOSIT_BOX_LOCATION).next();
 
-        if (ctx.players.getLocal().getLocation().distanceTo(NEAR_DEPOSIT_BOX_LOCATION) < 5) {
+        if (ctx.players.getLocal().getLocation().distanceTo(DEPOSIT_BOX_LOCATION) < 5) {
             if (depositBox != null && depositBox.validateInteractable()) {
                 SimpleItem planksInv = ctx.inventory.populate().filter(plank).next();
                 SimpleItem notedWoodInv = ctx.inventory.populate().filter(woodNoted).next();
@@ -280,7 +280,7 @@ public class eMain extends TaskScript implements LoopingScript {
             }
         } else {
             status = "Running to Bank deposit box";
-            ctx.pathing.step(NEAR_DEPOSIT_BOX_LOCATION);
+            takingStepsRMining();
         }
     }
 
@@ -330,11 +330,13 @@ public class eMain extends TaskScript implements LoopingScript {
         return ctx.inventory.populate().filter(notedPlanksId).population(true);
     }
 
-/*    private void updateStatus(String newStatus) {
-        status = newStatus;
-        ctx.updateStatus(status);
-        System.out.println(status);
-    }*/
+    public void takingStepsRMining() {
+        int max = 6;
+        int min = 1;
+        int[][] coordinates = {{1649, 3498}, {1649, 3494}, {1647, 3497}, {1650, 3479}, {1647, 3494}, {1648, 3498}};
+        int randomNum = ThreadLocalRandom.current().nextInt(min, max + min);
+        ctx.pathing.step(coordinates[randomNum - 1][0], coordinates[randomNum - 1][1]);
+    }
 
     private void updateStatus(String newStatus) {
         status = newStatus;
