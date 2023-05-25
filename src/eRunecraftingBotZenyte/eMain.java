@@ -4,6 +4,7 @@ package eRunecraftingBotZenyte;
 import eRandomEventSolver.eRandomEventForester;
 import eRunecraftingBotZenyte.listeners.SkillListener;
 import eRunecraftingBotZenyte.listeners.SkillObserver;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleBank;
 import simple.hooks.filters.SimpleSkills;
@@ -56,6 +57,7 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
     private int denseInInventory;
     boolean runningSkillListener = true;
     private boolean scriptStopped = false;
+    private static String playerGameName;
 
 
     //stats
@@ -485,6 +487,13 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
         return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
     }
 
+    public String getPlayerName() {
+        if (playerGameName == null) {
+            playerGameName = ctx.players.getLocal().getName();
+        }
+        return playerGameName;
+    }
+
     @Override
     public void onTerminate() {
         if (playerState == State.MINING) {
@@ -512,9 +521,21 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
 
     @Override
     public void onChatMessage(ChatMessage m) {
-        if (m.getMessage() != null) {
-            String message = m.getMessage().toLowerCase();
-            if (message.contains(ctx.players.getLocal().getName().toLowerCase())) {
+        ChatMessageType getType = m.getType();
+        net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
+        playerGameName = getPlayerName();
+
+        if (m.getMessage() == null) {
+            return;
+        }
+
+        if (getType == ChatMessageType.PUBLICCHAT) {
+            String senderName = getEvent.getName();
+
+            // Remove any text within angle brackets and trim
+            senderName = senderName.replaceAll("<[^>]+>", "").trim();
+
+            if (senderName.contains(playerGameName)) {
                 ctx.updateStatus(currentTime() + " Someone asked for you");
                 ctx.updateStatus(currentTime() + " Stopping script");
                 ctx.stopScript();

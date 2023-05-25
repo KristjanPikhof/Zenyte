@@ -1,6 +1,7 @@
 package eAnvilSmitherZenyte;
 
 import eRandomEventSolver.eRandomEventForester;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleBank;
 import simple.hooks.filters.SimpleSkills;
@@ -44,7 +45,7 @@ import java.awt.Graphics;
         discord = "Esmaabi#5752",
         name = "eAnvilSmitherZenyte",
         servers = {"Zenyte"},
-        version = "0.2"
+        version = "0.3"
 )
 
 public class eMain extends TaskScript implements LoopingScript {
@@ -75,6 +76,7 @@ public class eMain extends TaskScript implements LoopingScript {
     private boolean botStarted = false;
     private static boolean hidePaint = false;
     private Runnable lastSmithingTask, lastBankingTask = null;
+    private static String playerGameName;
 
     // Tasks
     private final List<Task> tasks = new ArrayList<>();
@@ -384,6 +386,13 @@ public class eMain extends TaskScript implements LoopingScript {
         System.out.println(status);
     }
 
+    public String getPlayerName() {
+        if (playerGameName == null) {
+            playerGameName = ctx.players.getLocal().getName();
+        }
+        return playerGameName;
+    }
+
     @Override
     public void onTerminate() {
 
@@ -400,16 +409,34 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onChatMessage(ChatMessage m) {
-        if (m.getMessage() != null) {
-            String message = m.getMessage().toLowerCase();
-            String playerName = ctx.players.getLocal().getName().toLowerCase();
 
-            if (message.contains(playerName)) {
-                ctx.updateStatus(currentTime() + " Someone asked for you. Stopping script");
-                ctx.stopScript();
-            } else if (message.contains("you hammer the")) {
+        ChatMessageType getType = m.getType();
+        net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
+        playerGameName = getPlayerName();
+        String message = m.getMessage().toLowerCase();
+
+        if (m.getMessage() == null) {
+            return;
+        }
+
+        if (m.getMessage() != null) {
+            if (message.contains("you hammer the")) {
                 count++;
             }
+        }
+
+        if (getType == ChatMessageType.PUBLICCHAT) {
+            String senderName = getEvent.getName();
+
+            // Remove any text within angle brackets and trim
+            senderName = senderName.replaceAll("<[^>]+>", "").trim();
+
+            if (senderName.contains(playerGameName)) {
+                ctx.updateStatus(currentTime() + " Someone asked for you");
+                ctx.updateStatus(currentTime() + " Stopping script");
+                ctx.stopScript();
+            }
+
         }
     }
 

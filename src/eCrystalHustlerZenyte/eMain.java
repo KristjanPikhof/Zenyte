@@ -1,6 +1,7 @@
 package eCrystalHustlerZenyte;
 
 import eRandomEventSolver.eRandomEventForester;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleGroundItems;
 import simple.hooks.filters.SimpleInventory;
@@ -71,6 +72,7 @@ public class eMain extends TaskScript implements LoopingScript {
     public static boolean specialAttackTool = true;
     public static boolean woodcuttingAction;
     public static boolean miningAction;
+    private static String playerGameName;
 
     @Override
     public int loopDuration() {
@@ -144,10 +146,10 @@ public class eMain extends TaskScript implements LoopingScript {
                 if (!localPlayer.isAnimating() && !pathing.inMotion()) {
                     miningCrystals(localPlayer);
                 }
-            }
 
-            if (localPlayer.getHealth() <= 40) {
-                handleEating(localPlayer);
+                if (localPlayer.getHealth() <= 40) {
+                    handleEating(localPlayer);
+                }
             }
 
             if (localPlayer.isAnimating()) {
@@ -278,6 +280,13 @@ public class eMain extends TaskScript implements LoopingScript {
         logger.info(status);
     }
 
+    public String getPlayerName() {
+        if (playerGameName == null) {
+            playerGameName = ctx.players.getLocal().getName();
+        }
+        return playerGameName;
+    }
+
     public static String currentTime() {
         return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
     }
@@ -302,17 +311,26 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onChatMessage(ChatMessage m) {
+        ChatMessageType getType = m.getType();
+        net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
+        playerGameName = getPlayerName();
+
         if (m.getMessage() == null) {
             return;
         }
 
-        String message = m.getMessage().toLowerCase();
-        String playerName = ctx.players.getLocal().getName().toLowerCase();
+        if (getType == ChatMessageType.PUBLICCHAT) {
+            String senderName = getEvent.getName();
 
-        if (message.contains(playerName)) {
-            ctx.updateStatus(currentTime() + " Someone asked for you");
-            ctx.updateStatus(currentTime() + " Stopping script");
-            ctx.stopScript();
+            // Remove any text within angle brackets and trim
+            senderName = senderName.replaceAll("<[^>]+>", "").trim();
+
+            if (senderName.contains(playerGameName)) {
+                ctx.updateStatus(currentTime() + " Someone asked for you");
+                ctx.updateStatus(currentTime() + " Stopping script");
+                ctx.stopScript();
+            }
+
         }
     }
 

@@ -1,6 +1,7 @@
 package eAmethystMinerProZenyte;
 
 import eRandomEventSolver.eRandomEventForester;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleSkills;
 import simple.hooks.queries.SimplePlayerQuery;
@@ -34,7 +35,7 @@ import static eRandomEventSolver.eRandomEventForester.forestArea;
                 "<li>Dragon pickaxe special attack supported;</li>" +
                 "<li>Random sleeping included!</li></ul>",
         discord = "Esmaabi#5752",
-        name = "eAmethystMinerProZenyte", servers = { "Zenyte" }, version = "2.2")
+        name = "eAmethystMinerProZenyte", servers = { "Zenyte" }, version = "2.3")
 
 public class eMain extends TaskScript implements LoopingScript {
 
@@ -54,9 +55,11 @@ public class eMain extends TaskScript implements LoopingScript {
     private int comradesInt;
 
     boolean specialDone = false;
-    private final int[] inventoryPickaxe = {20014, 13243, 12797, 12297, 11920, 1275, 1273, 1271, 1269, 1267, 1265};
+    private final int[] inventoryPickaxe = {30742, 20014, 13243, 12797, 12297, 11920, 1275, 1273, 1271, 1269, 1267, 1265};
     private final String[] names = {"Test"}; // names to ba added to work
     private static boolean hidePaint = false;
+    private static String playerGameName;
+    private int[] lastCoordinates;
 
     public static int randomSleeping(int minimum, int maximum) {
         return (int)(Math.random() * (maximum - minimum)) + minimum;
@@ -101,6 +104,7 @@ public class eMain extends TaskScript implements LoopingScript {
         ctx.viewport.pitch(true);
         specialDone = false;
         comradesInt = 0;
+        lastCoordinates = null;
 
     }
 
@@ -203,6 +207,7 @@ public class eMain extends TaskScript implements LoopingScript {
         if (ctx.bank.bankOpen()) {
             status = "Banking";
             if (ctx.inventory.inventoryFull()) {
+                lastCoordinates = null; // reset lastCoordinates for the next run
                 status = "Depositing inventory";
                 ctx.bank.depositAllExcept(inventoryPickaxe);
                 int inventorySpaceBefore = getInventoryPopulation();
@@ -236,44 +241,6 @@ public class eMain extends TaskScript implements LoopingScript {
         }
     }
 
-/*    public void takingStepsRMining() {
-        int max = 5;
-        int min = 1;
-        int randomNum = ThreadLocalRandom.current().nextInt(min, max + 1);
-        switch(randomNum) {
-            case 1:
-                status = "Taking path: 1";
-                ctx.pathing.step(3024, 9708);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
-            case 2:
-                status = "Taking path: 2";
-                ctx.pathing.step(3018, 9704);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
-            case 3:
-                status = "Taking path:  3";
-                ctx.pathing.step(3022, 9707);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
-            case 4:
-                status = "Taking path: 4";
-                ctx.pathing.step(3028, 9704);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
-            case 5:
-                status = "Taking path: 5";
-                ctx.pathing.step(3027, 9705);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
-            default:
-                status = "Taking path: default";
-                ctx.pathing.step(3019, 9706);
-                ctx.sleep(randomSleeping(2200, 3200));
-                break;
-        }
-    }*/
-
     private boolean comradesInArea() {
         SimplePlayerQuery<SimplePlayer> comrades = ctx.players.populate().filter(this.names);
         comradesInt = 0;
@@ -297,15 +264,25 @@ public class eMain extends TaskScript implements LoopingScript {
         int max = 6;
         int min = 1;
         int[][] coordinates = {{3024, 9708}, {3018, 9704}, {3022, 9707}, {3028, 9704}, {3019, 9706}, {3027, 9705}};
-        int randomNum = ThreadLocalRandom.current().nextInt(min, max + min);
-        ctx.pathing.step(coordinates[randomNum - 1][0], coordinates[randomNum - 1][1]);
+
+        if (lastCoordinates == null) {
+            // first time running the function, generate a new random location
+            int randomNum = ThreadLocalRandom.current().nextInt(min, max + min);
+            lastCoordinates = coordinates[randomNum - 1];
+        }
+        ctx.pathing.step(lastCoordinates[0], lastCoordinates[1]);
     }
 
     public int getInventoryPopulation() {
         return ctx.inventory.populate().population();
     }
 
-
+    public String getPlayerName() {
+        if (playerGameName == null) {
+            playerGameName = ctx.players.getLocal().getName();
+        }
+        return playerGameName;
+    }
 
     @Override
     public void onTerminate() {
@@ -321,15 +298,33 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onChatMessage(ChatMessage m) {
+        ChatMessageType getType = m.getType();
+        net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
+        playerGameName = getPlayerName();
+        String message = m.getMessage().toLowerCase();
+
+        if (m.getMessage() == null) {
+            return;
+        }
+
         if (m.getMessage() != null) {
-            String message = m.getMessage().toLowerCase();
-            if (message.contains(ctx.players.getLocal().getName().toLowerCase())) {
+            if (message.contains("get some amethyst")) {
+                count++;
+            }
+        }
+
+        if (getType == ChatMessageType.PUBLICCHAT) {
+            String senderName = getEvent.getName();
+
+            // Remove any text within angle brackets and trim
+            senderName = senderName.replaceAll("<[^>]+>", "").trim();
+
+            if (senderName.contains(playerGameName)) {
                 ctx.updateStatus(currentTime() + " Someone asked for you");
                 ctx.updateStatus(currentTime() + " Stopping script");
                 ctx.stopScript();
-            } else if (message.contains("get some amethyst")) {
-                count++;
             }
+
         }
     }
 

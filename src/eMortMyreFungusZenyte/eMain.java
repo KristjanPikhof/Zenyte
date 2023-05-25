@@ -1,6 +1,7 @@
 package eMortMyreFungusZenyte;
 
 import eRandomEventSolver.eRandomEventForester;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleBank;
 import simple.hooks.filters.SimplePrayers;
@@ -40,7 +41,7 @@ import java.util.List;
         discord = "Esmaabi#5752",
         name = "eMortMyreFungusZenyte",
         servers = {"Zenyte"},
-        version = "0.1"
+        version = "0.2"
 )
 
 public class eMain extends TaskScript implements LoopingScript {
@@ -52,6 +53,7 @@ public class eMain extends TaskScript implements LoopingScript {
     private static final int SPIRITUAL_FAIRY_THEE_ID = 35003; //Ring-last-destination
     private static final int BANKER_ID = 10029;
     private static final int BOX_OF_RESTORATION_ID = 35021; // Restore
+    private static String playerGameName;
 
 
     // Coordinates
@@ -336,6 +338,13 @@ public class eMain extends TaskScript implements LoopingScript {
         ctx.updateStatus(status);
         System.out.println(status);
     }
+    public String getPlayerName() {
+        if (playerGameName == null) {
+            playerGameName = ctx.players.getLocal().getName();
+        }
+        return playerGameName;
+    }
+
 
     @Override
     public void onTerminate() {
@@ -351,15 +360,32 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onChatMessage(ChatMessage m) {
+
+        ChatMessageType getType = m.getType();
+        net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
+        playerGameName = getPlayerName();
+
+        if (m.getMessage() == null) {
+            return;
+        }
+
         if (m.getMessage() != null) {
             String message = m.getMessage().toLowerCase();
-            String playerName = ctx.players.getLocal().getName().toLowerCase();
-
-            if (message.contains(playerName)) {
-                ctx.updateStatus(currentTime() + " Someone asked for you. Stopping script");
-                ctx.stopScript();
-            } else if (message.contains("you need to wait")) {
+            if (message.contains("you need to wait")) {
                 updateStatus("Cannot restore prayer yet");
+            }
+        }
+
+        if (getType == ChatMessageType.PUBLICCHAT) {
+            String senderName = getEvent.getName();
+
+            // Remove any text within angle brackets and trim
+            senderName = senderName.replaceAll("<[^>]+>", "").trim();
+
+            if (senderName.contains(playerGameName)) {
+                ctx.updateStatus(currentTime() + " Someone asked for you");
+                ctx.updateStatus(currentTime() + " Stopping script");
+                ctx.stopScript();
             }
         }
     }

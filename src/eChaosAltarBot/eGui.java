@@ -27,7 +27,7 @@ public class eGui extends JFrame {
         setContentPane(contentPane);
         contentPane.setLayout(null);
 
-        ImageIcon eIcon = new ImageIcon(Objects.requireNonNull(eGlassblowingBotZenyte.eGui.class.getResource("esmaabi-icon.png")));
+        ImageIcon eIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("esmaabi-icon.png")));
         setIconImage(eIcon.getImage());
 
         //Select location menu

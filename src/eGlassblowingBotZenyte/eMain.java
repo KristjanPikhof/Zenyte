@@ -1,6 +1,7 @@
 package eGlassblowingBotZenyte;
 
 import eRandomEventSolver.eRandomEventForester;
+import net.runelite.api.ChatMessageType;
 import simple.hooks.filters.SimpleShop;
 import simple.hooks.filters.SimpleSkills;
 import simple.hooks.scripts.Category;
@@ -33,7 +34,7 @@ import java.util.concurrent.CompletableFuture;
                 "<li>The bot will stop if you run out of coins or runes.</li></ul><br>" +
                 "For more information, check out Esmaabi on SimpleBot!</html>",
         discord = "Esmaabi#5752",
-        name = "eGlassblowingBotZenyte", servers = { "Zenyte" }, version = "2")
+        name = "eGlassblowingBotZenyte", servers = { "Zenyte" }, version = "2.1")
 
 public class eMain extends TaskScript implements LoopingScript {
 
@@ -48,6 +49,7 @@ public class eMain extends TaskScript implements LoopingScript {
 
     public static boolean started;
     private static boolean hidePaint = false;
+    private static String playerGameName;
 
     //items
     private final Set<Integer> craftingItems = new HashSet<>(Arrays.asList(1919, 4527, 4525, 229, 6667, 567, 4542));
@@ -277,6 +279,13 @@ public class eMain extends TaskScript implements LoopingScript {
         itemBoughtFuture.join();
     }
 
+    public String getPlayerName() {
+        if (playerGameName == null) {
+            playerGameName = ctx.players.getLocal().getName();
+        }
+        return playerGameName;
+    }
+
     private void updateStatus(String newStatus) {
         status = newStatus;
         ctx.updateStatus(status);
@@ -301,14 +310,18 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onChatMessage(ChatMessage m) {
+
+        ChatMessageType getType = m.getType();
+        net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
+        playerGameName = getPlayerName();
+
+        if (m.getMessage() == null) {
+            return;
+        }
+
         if (m.getMessage() != null) {
             String message = m.getMessage().toLowerCase();
-            if (message.contains(ctx.players.getLocal().getName().toLowerCase())) {
-                ctx.updateStatus(currentTime() + " Someone asked for you");
-                ctx.updateStatus(currentTime() + " Stopping script");
-                ctx.sleep(3000);
-                ctx.stopScript();
-            } else if (message.contains("don't have enough")) {
+            if (message.contains("don't have enough")) {
                 ctx.updateStatus(currentTime() + " Out of coins");
                 ctx.updateStatus(currentTime() + " Stopping script");
                 ctx.sleep(3000);
@@ -317,6 +330,19 @@ public class eMain extends TaskScript implements LoopingScript {
                 ctx.updateStatus(currentTime() + " Out of runes");
                 ctx.updateStatus(currentTime() + " Stopping script");
                 ctx.sleep(3000);
+                ctx.stopScript();
+            }
+        }
+
+        if (getType == ChatMessageType.PUBLICCHAT) {
+            String senderName = getEvent.getName();
+
+            // Remove any text within angle brackets and trim
+            senderName = senderName.replaceAll("<[^>]+>", "").trim();
+
+            if (senderName.contains(playerGameName)) {
+                ctx.updateStatus(currentTime() + " Someone asked for you");
+                ctx.updateStatus(currentTime() + " Stopping script");
                 ctx.stopScript();
             }
         }

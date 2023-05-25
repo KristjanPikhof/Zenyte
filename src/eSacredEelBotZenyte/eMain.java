@@ -4,6 +4,7 @@ package eSacredEelBotZenyte;
 import eRandomEventSolver.eRandomEventForester;
 import eRunecraftingBotZenyte.listeners.SkillListener;
 import eSacredEelBotZenyte.listeners.SkillObserver;
+import net.runelite.api.ChatMessageType;
 import simple.hooks.filters.SimpleSkills;
 import simple.hooks.scripts.Category;
 import simple.hooks.scripts.LoopingScript;
@@ -30,7 +31,7 @@ import java.util.function.BooleanSupplier;
         + "Start the scrip near fishing spots at <b>Zul-Andra</b><br>"
         + "Bot will equip Angler equipment if acquired.<br><br> "
         + "For more information check out Esmaabi on SimpleBot!", discord = "Esmaabi#5752",
-        name = "eSacredEelBotZenyte", servers = { "Zenyte" }, version = "0.1")
+        name = "eSacredEelBotZenyte", servers = { "Zenyte" }, version = "0.2")
 
 public class eMain extends TaskScript implements SkillListener, LoopingScript {
 
@@ -45,6 +46,7 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
     private int experienceGained;
     boolean runningSkillListener = true;
     static boolean botTerminated = false;
+    private static String playerGameName;
 
 
     //NPC
@@ -243,6 +245,14 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
         return (int)(Math.random() * (maximum - minimum)) + minimum;
     }
 
+    public String getPlayerName() {
+        if (playerGameName == null) {
+            playerGameName = ctx.players.getLocal().getName();
+        }
+        return playerGameName;
+    }
+
+
     @Override
     public void onTerminate() {
         this.ctx.updateStatus("Sacred eel caught: " + fishCount);
@@ -264,13 +274,26 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
 
     @Override
     public void onChatMessage(ChatMessage m) {
-        if (m.getMessage() != null) {
-            String message = m.getMessage().toLowerCase();
-            if (message.contains(ctx.players.getLocal().getName().toLowerCase())) {
+        ChatMessageType getType = m.getType();
+        net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
+        playerGameName = getPlayerName();
+
+        if (m.getMessage() == null) {
+            return;
+        }
+
+        if (getType == ChatMessageType.PUBLICCHAT) {
+            String senderName = getEvent.getName();
+
+            // Remove any text within angle brackets and trim
+            senderName = senderName.replaceAll("<[^>]+>", "").trim();
+
+            if (senderName.contains(playerGameName)) {
                 ctx.updateStatus(currentTime() + " Someone asked for you");
                 ctx.updateStatus(currentTime() + " Stopping script");
                 ctx.stopScript();
             }
+
         }
     }
 

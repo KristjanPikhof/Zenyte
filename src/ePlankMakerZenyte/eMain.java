@@ -1,6 +1,7 @@
 package ePlankMakerZenyte;
 
 import eRandomEventSolver.eRandomEventForester;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.scripts.Category;
 import simple.hooks.scripts.LoopingScript;
@@ -32,7 +33,7 @@ import java.util.regex.Pattern;
         "<li>It's recommended to wear full Graceful or have few stamina potions in inventory</li>" +
         "<li>The bot will stop if you run out of noted logs or coins.</li></ul><br>" +
         "For more information, check out Esmaabi on SimpleBot!", discord = "Esmaabi#5752",
-        name = "ePlankMakerBotZenyte", servers = { "Zenyte" }, version = "1.1")
+        name = "ePlankMakerBotZenyte", servers = { "Zenyte" }, version = "2")
 
 public class eMain extends TaskScript implements LoopingScript {
 
@@ -58,6 +59,8 @@ public class eMain extends TaskScript implements LoopingScript {
     public static boolean outOfMoney = false;
     public static woodTypeEnum woodType;
     public static boolean hasStaminaPotions = true;
+    private int[] lastCoordinates;
+    private static String playerGameName;
 
     @Override
     public int loopDuration() {
@@ -151,6 +154,7 @@ public class eMain extends TaskScript implements LoopingScript {
         hidePaint = false;
         useStaminaPotions = false;
         countActive = false;
+        lastCoordinates = null;
     }
 
     @Override
@@ -175,14 +179,19 @@ public class eMain extends TaskScript implements LoopingScript {
             }
 
             if (!outOfMoney) {
-                int planksInInventory = ctx.inventory.populate().filter(woodType.getPlankId()).population();
-                int woodInInventory = ctx.inventory.populate().filter(woodType.getLogsId()).population();
-                if (planksInInventory == 0 && woodInInventory > 0) {
+                int planksInInventory = getItemsInventory(woodType.getPlankId());
+                int logsInInventory = getItemsInventory(woodType.getLogsId());
+
+                // If there are no planks and some logs in the inventory, make planks
+                if (planksInInventory == 0 && logsInInventory > 0) {
                     makePlanks(woodType.getWidgetId(), woodType.getLogsId(), woodType.getName());
-                } else if (planksInInventory > 0 && woodInInventory == 0 || planksInInventory == 0 && woodInInventory == 0) {
+                }
+                // If there are planks and no logs, or no planks and no logs in the inventory, perform note task
+                else if ((planksInInventory > 0 && logsInInventory == 0) || (planksInInventory == 0 && logsInInventory == 0)) {
                     noteTask(woodType.getLogsNotedId(), woodType.getLogsId(), woodType.getPlankId(), woodType.getName());
                 }
             } else {
+                // If out of money, update status and stop the script
                 updateStatus("Out of GP. Stopping bot.");
                 ctx.stopScript();
             }
@@ -198,9 +207,6 @@ public class eMain extends TaskScript implements LoopingScript {
             if (lowerCaseText.contains("money for all of them")) {
                 outOfMoney = true;
             }
-/*            } else {
-                ctx.keyboard.clickKey(SPACE_BUTTON);
-            }*/
         }
     }
 
@@ -257,6 +263,7 @@ public class eMain extends TaskScript implements LoopingScript {
                 }
 
                 if (planksInv != null && woodInv == null) {
+                    lastCoordinates = null; // reset lastCoordinates for the next run
                     clickOnBag();
                     updateStatus("Getting " + name + " planks noted");
                     planksInv.click("Use");
@@ -280,7 +287,7 @@ public class eMain extends TaskScript implements LoopingScript {
             }
         } else {
             status = "Running to Bank deposit box";
-            takingStepsRMining();
+            choosingPathToBank();
         }
     }
 
@@ -330,22 +337,39 @@ public class eMain extends TaskScript implements LoopingScript {
         return ctx.inventory.populate().filter(notedPlanksId).population(true);
     }
 
-    public void takingStepsRMining() {
+    private int getItemsInventory(int itemId) {
+        return ctx.inventory.populate().filter(itemId).population();
+    }
+
+    public void choosingPathToBank() {
         int max = 6;
         int min = 1;
-        int[][] coordinates = {{1649, 3498}, {1649, 3494}, {1647, 3497}, {1650, 3479}, {1647, 3494}, {1648, 3498}};
-        int randomNum = ThreadLocalRandom.current().nextInt(min, max + min);
-        ctx.pathing.step(coordinates[randomNum - 1][0], coordinates[randomNum - 1][1]);
+        int[][] coordinates = {{1649, 3498}, {1649, 3494}, {1647, 3497}, {1650, 3497}, {1647, 3494}, {1648, 3498}};
+
+        if (lastCoordinates == null) {
+            // first time running the function, generate a new random location
+            int randomNum = ThreadLocalRandom.current().nextInt(min, max + min);
+            lastCoordinates = coordinates[randomNum - 1];
+        }
+        //logger.info(String.valueOf(new WorldPoint(lastCoordinates[0], lastCoordinates[1], 0))); // debug
+        ctx.pathing.step(lastCoordinates[0], lastCoordinates[1]);
     }
 
     private void updateStatus(String newStatus) {
         status = newStatus;
         ctx.updateStatus(status);
-        logger.info(status);
+        logger.info(status); //debug
     }
 
     public static String currentTime() {
         return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+    }
+
+    public String getPlayerName() {
+        if (playerGameName == null) {
+            playerGameName = ctx.players.getLocal().getName();
+        }
+        return playerGameName;
     }
 
     @Override
@@ -366,17 +390,26 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onChatMessage(ChatMessage m) {
+        ChatMessageType getType = m.getType();
+        net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
+        playerGameName = getPlayerName();
+
         if (m.getMessage() == null) {
             return;
         }
 
-        String message = m.getMessage().toLowerCase();
-        String playerName = ctx.players.getLocal().getName().toLowerCase();
+        if (getType == ChatMessageType.PUBLICCHAT) {
+            String senderName = getEvent.getName();
 
-        if (message.contains(playerName)) {
-            ctx.updateStatus(currentTime() + " Someone asked for you");
-            ctx.updateStatus(currentTime() + " Stopping script");
-            ctx.stopScript();
+            // Remove any text within angle brackets and trim
+            senderName = senderName.replaceAll("<[^>]+>", "").trim();
+
+            if (senderName.contains(playerGameName)) {
+                ctx.updateStatus(currentTime() + " Someone asked for you");
+                ctx.updateStatus(currentTime() + " Stopping script");
+                ctx.stopScript();
+            }
+
         }
     }
 

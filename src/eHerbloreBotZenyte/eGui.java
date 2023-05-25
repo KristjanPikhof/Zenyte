@@ -57,7 +57,7 @@ public class eGui extends JFrame {
         constraints.gridy++; // Moving to next row
 
         // Enter NPC ID only as digits
-        addLabel("Enter item ID: ", contentPane, constraints, false);
+        addLabel("DO NOT USE: ", contentPane, constraints, false);
         constraints.gridx = 1; // Setting x-axis position to 1
         itemTextField = addTextField(contentPane, constraints);
         itemTextField.setPreferredSize(new Dimension(150, itemTextField.getPreferredSize().height));

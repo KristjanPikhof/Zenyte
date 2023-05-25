@@ -1,5 +1,6 @@
 package eChinBotZenyte;
 
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleSkills;
 import simple.hooks.filters.SimpleSkills.Skills;
@@ -16,7 +17,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 @ScriptManifest(author = "Nate/Trester/Esmaabi", category = Category.HUNTER, description = "Start near chinchompa hunting spot with boxes in inventory. Script reworked by Trester & Esmaabi",
-        discord = "Nathan#6809 | Loreen#4582 | Esmaabi#5752", name = "Amazing Chins v4 (Zenyte)", servers = {"Zenyte"}, version = "4")
+        discord = "Nathan#6809 | Loreen#4582 | Esmaabi#5752", name = "Amazing Chins v4 (Zenyte)", servers = {"Zenyte"}, version = "4.1")
 
 public class eMain extends Script {
 
@@ -32,6 +33,7 @@ public class eMain extends Script {
     private WorldPoint[] locs = null;
     private int maxTraps = -1;
     private boolean calculated = false;
+    private static String playerGameName;
 
     public static int randomNumber(int minimum, int maximum) {
         return (int)(Math.random() * (maximum - minimum)) + minimum;
@@ -39,6 +41,13 @@ public class eMain extends Script {
 
     public static String currentTime() {
         return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+    }
+
+    public String getPlayerName() {
+        if (playerGameName == null) {
+            playerGameName = ctx.players.getLocal().getName();
+        }
+        return playerGameName;
     }
 
     @Override
@@ -77,13 +86,18 @@ public class eMain extends Script {
 
     @Override
     public void onChatMessage(ChatMessage m) {
+
+        ChatMessageType getType = m.getType();
+        net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
+        playerGameName = getPlayerName();
+        String message = m.getMessage().toLowerCase();
+
+        if (m.getMessage() == null) {
+            return;
+        }
+
         if (m.getMessage() != null) {
-            String message = m.getMessage().toLowerCase();
-            if (message.contains(ctx.players.getLocal().getName().toLowerCase())) {
-                ctx.updateStatus(currentTime() + " Someone asked for you");
-                ctx.updateStatus(currentTime() + " Stopping script");
-                ctx.stopScript();
-            } else if (message.contains("don't have a high enough hunter")) {
+            if (message.contains("don't have a high enough hunter")) {
                 status = "Too many traps!";
                 trapsPickup = true;
             } else if (message.contains("traps at a time at your hunter")) {
@@ -96,6 +110,20 @@ public class eMain extends Script {
                 status = "Can't lay here!";
                 trapsPickup = true;
             }
+        }
+
+        if (getType == ChatMessageType.PUBLICCHAT) {
+            String senderName = getEvent.getName();
+
+            // Remove any text within angle brackets and trim
+            senderName = senderName.replaceAll("<[^>]+>", "").trim();
+
+            if (senderName.contains(playerGameName)) {
+                ctx.updateStatus(currentTime() + " Someone asked for you");
+                ctx.updateStatus(currentTime() + " Stopping script");
+                ctx.stopScript();
+            }
+
         }
     }
 

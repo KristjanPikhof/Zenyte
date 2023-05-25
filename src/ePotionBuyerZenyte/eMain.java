@@ -1,6 +1,7 @@
 package ePotionBuyerZenyte;
 
 import eRandomEventSolver.eRandomEventForester;
+import net.runelite.api.ChatMessageType;
 import simple.hooks.filters.SimpleShop;
 import simple.hooks.scripts.Category;
 import simple.hooks.scripts.LoopingScript;
@@ -40,6 +41,7 @@ public class eMain extends TaskScript implements LoopingScript {
     public static boolean hidePaint = false;
     public static boolean outOfMoney = false;
     public static String actionName = null;
+    private static String playerGameName;
 
     // Constants
     public static int itemId;
@@ -240,6 +242,13 @@ public class eMain extends TaskScript implements LoopingScript {
         return (int)(Math.random() * (maximum - minimum)) + minimum;
     }
 
+    public String getPlayerName() {
+        if (playerGameName == null) {
+            playerGameName = ctx.players.getLocal().getName();
+        }
+        return playerGameName;
+    }
+
     @Override
     public void onTerminate() {
         status = "Stopping bot";
@@ -256,19 +265,30 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onChatMessage(ChatMessage m) {
+        String message = m.getMessage().toLowerCase();
+        ChatMessageType getType = m.getType();
+        net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
+        playerGameName = getPlayerName();
+
         if (m.getMessage() == null) {
             return;
         }
 
-        String message = m.getMessage().toLowerCase();
-        String playerName = ctx.players.getLocal().getName().toLowerCase();
-
-        if (message.contains(playerName)) {
-            ctx.updateStatus(currentTime() + " Someone asked for you");
-            ctx.updateStatus(currentTime() + " Stopping script");
-            ctx.stopScript();
-        } else if (message.contains("cannot buy")) {
+        if (message.contains("cannot buy")) {
             outOfMoney = true;
+        }
+
+        if (getType == ChatMessageType.PUBLICCHAT) {
+            String senderName = getEvent.getName();
+
+            // Remove any text within angle brackets and trim
+            senderName = senderName.replaceAll("<[^>]+>", "").trim();
+
+            if (senderName.contains(playerGameName)) {
+                ctx.updateStatus(currentTime() + " Someone asked for you");
+                ctx.updateStatus(currentTime() + " Stopping script");
+                ctx.stopScript();
+            }
         }
     }
 
