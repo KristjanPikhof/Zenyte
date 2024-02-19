@@ -94,7 +94,7 @@ public class eMain extends TaskScript implements LoopingScript {
     @Override
     public void onExecute() {
 
-        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));// Adds tasks to our {task} list for execution
+        tasks.addAll(Arrays.asList());// Adds tasks to our {task} list for execution
 
         // Other vars
         System.out.println("Started eAnvilSmither!");
@@ -142,12 +142,18 @@ public class eMain extends TaskScript implements LoopingScript {
                     minBarsRequired = 1;
                     botStarted = true;
                     break;
+                case "Bolts":
+                    nameOfItem = "bolts";
+                    updateStatus("Smithing " + nameOfItem);
+                    smithingWidget = 28;
+                    minBarsRequired = 1;
+                    botStarted = true;
+                    break;
                 default:
                     updateStatus("Waiting for GUI options");
                     botStarted = false;
             }
         }
-
     }
 
     @Override
@@ -307,7 +313,7 @@ public class eMain extends TaskScript implements LoopingScript {
         if (!widgetScreenVisible) {
             if (anvil != null && anvil.validateInteractable() && !ctx.pathing.inMotion()) {
                 updateStatus("Clicking anvil");
-                anvil.click("Smith", "Anvil");
+                anvil.menuAction("Smith");
                 ctx.sleepCondition(() -> smithingItem == null, 5000);
             }
         } else {
@@ -392,6 +398,7 @@ public class eMain extends TaskScript implements LoopingScript {
         }
         return playerGameName;
     }
+
 
     @Override
     public void onTerminate() {
@@ -481,7 +488,7 @@ public class eMain extends TaskScript implements LoopingScript {
             g.drawString("eAnvilSmithingBot by Esmaabi", 15, 135);
             g.setColor(Color.WHITE);
             g.drawString("Runtime: " + formatTime(runTime), 15, 150);
-            g.drawString("Skill Level: " + this.startingSkillLevel + " (+" + skillLevelsGained + "), started at " + currentSkillLevel, 15, 165);
+            g.drawString("Skill Level: " + currentSkillLevel + " (+" + skillLevelsGained + "), started at " + this.startingSkillLevel, 15, 165);
             g.drawString("Current Exp: " + currentSkillExp, 15, 180);
             g.drawString("Exp gained: " + skillExpGained + " (" + (skillExpPerHour / 1000L) + "k xp/h)", 15, 195);
             g.drawString("Items smithed: " + count + " (" + actionsPerHour + " per/h)", 15, 210);

@@ -1,5 +1,7 @@
 package eChaosAltarBot;
 
+import BotUtils.eActions;
+import eApiAccess.eAutoResponser;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleSkills;
@@ -15,15 +17,20 @@ import simple.robot.utils.WorldArea;
 import java.awt.*;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 
 
 @ScriptManifest(author = "Esmaabi", category = Category.PRAYER, description =
-        "<br>Most effective Chaos Altar prayer training bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br>" +
-        "<ul><li>You must start at chosen bank;</li>" +
-        "<li>Have infernal ashes noted and enough gp in inventory;</li>" +
-        "<li>At the moment supports only infernal ashes</li>" +
-        "<li>Bot will log out if players around</li></ul>", discord = "Esmaabi#5752",
-        name = "eChaosAltarBotZenyte", servers = { "Zenyte" }, version = "0.2")
+        "<br>Most effective Chaos Altar prayer training bot on Zenyte! <br><br>" +
+                "<b>Features & recommendations:</b><br><br>" +
+                "<ul>" +
+                "<li>You must near Chaos Altar;</li>" +
+                "<li>You must have noted / ashes with you and enough coins in inventory;</li>" +
+                "<li>Bot supports variety of bones.</li>" +
+                "<li>Bot will log out if out of bones or coins.</li>" +
+                "<li>Bot will log out there are more than (chosen) players around</li>" +
+                "</ul>", discord = "Esmaabi#5752",
+        name = "eChaosAltarBotZenyte", servers = { "Zenyte" }, version = "0.5")
 
 public class eMain extends Script{
     private static eGui gui;
@@ -35,12 +42,11 @@ public class eMain extends Script{
     static String status = null;
     public static boolean botStarted = false;
     public static boolean hidePaint = false;
+    public static boolean logOut = false;
     private long lastAnimation = -1;
 
     //Items
     public static String bonesName;
-
-
 
     //Locations
     private static final WorldArea chaosAltarArea = new WorldArea (
@@ -76,7 +82,8 @@ public class eMain extends Script{
         count = 0;
         botStarted = false;
         hidePaint = false;
-
+        logOut = false;
+        eActions.menuActionMode = true;
     }
 
     @Override
@@ -89,23 +96,37 @@ public class eMain extends Script{
                 currentExp = this.ctx.skills.experience(SimpleSkills.Skills.PRAYER);
             }
 
-            if (ctx.players.populate().population() > 1) {
-                ctx.sendLogout();
+            logOut = getLogoutCount() > 0 ? true : false;
+
+            if (logOut) {
+                if (ctx.players.populate().population() > getLogoutCount()) {
+                    status = "Logging out";
+                    ctx.updateStatus("Logging out.");
+                    ctx.updateStatus("Too many players!");
+                    ctx.sendLogout();
+                    ctx.sendLogout();
+                }
+            }
+
+            if (ctx.inventory.populate().filter(bonesName).isEmpty() || ctx.inventory.populate().filter("Coins").isEmpty()) {
+                status = "Logging out";
+                ctx.updateStatus("Logging out.");
+                ctx.updateStatus("Out of bones / coins!");
                 ctx.sendLogout();
             }
 
             if (ctx.pathing.inArea(chaosAltarArea)) {
 
-                if (ctx.inventory.populate().filter(30065).population() != 0) {
+                if (ctx.inventory.populate().filter(bonesName).filter(i -> !i.isStackable()).population() != 0) {
 
                     if (spotReachable()) {
-                        System.out.println(spotReachable());
                         status = "Closing doors";
                         SimpleObject doors = ctx.objects.populate().filter("Large door").next();
-                        System.out.println(doors);
                         if (doors != null && doors.validateInteractable()) {
-                            doors.click("Open");
-                            ctx.sleepCondition(() -> !spotReachable(), 5000);
+                            BotUtils.eActions.interactWith(doors, "Open");
+                            //doors.click("Open");
+                            //ctx.sleepCondition(() -> !spotReachable(), 5000);
+                            ctx.onCondition(() -> !spotReachable(), 250, 20);
                         }
                     }
 
@@ -117,24 +138,26 @@ public class eMain extends Script{
 
                 } else {
                     if (!spotReachable()) {
-                        System.out.println(spotReachable());
                         status = "Opening doors";
                         SimpleObject doors = ctx.objects.populate().filter("Large door").next();
-                        System.out.println(doors);
                         if (doors != null && doors.validateInteractable()) {
-                            doors.click("Open");
-                            ctx.sleepCondition(() -> ctx.pathing.inMotion(), 5000);
+                            //doors.click("Open");
+                            BotUtils.eActions.interactWith(doors, "Open");
+                            //ctx.sleepCondition(() -> ctx.pathing.inMotion(), 5000);
+                            ctx.onCondition(this::spotReachable, 250, 20);
                         }
                     } else {
                         if (!ctx.dialogue.dialogueOpen()) {
-                            status = "Using noted ashes on druid";
-                            SimpleNpc druid = ctx.npcs.populate().filter(7995).next();
-                            SimpleItem bonesInventory = ctx.inventory.populate().filter(30067).next();
+                            status = "Using bones on druid";
+                            SimpleNpc druid = ctx.npcs.populate().filter("Elder Chaos druid").next();
+                            SimpleItem bonesInventory = ctx.inventory.populate().filter(bonesName).filter(SimpleItem::isStackable).next();
                             if (druid != null && druid.validateInteractable() && bonesInventory != null && bonesInventory.validateInteractable()) {
                                 bonesInventory.click("Use");
                                 ctx.sleep(200);
-                                druid.click(0);
-                                ctx.sleepCondition(() -> ctx.dialogue.dialogueOpen(), 8000);
+                                //druid.click(0);
+                                BotUtils.eActions.interactWith(druid, "Use");
+                                //ctx.sleepCondition(() -> ctx.dialogue.dialogueOpen(), 8000);
+                                ctx.onCondition(() -> ctx.dialogue.dialogueOpen(), 250, 20);
                             }
                         }
                     }
@@ -143,21 +166,22 @@ public class eMain extends Script{
                 if (ctx.dialogue.dialogueOpen()) {
                     status = "Progressing dialogue";
                     ctx.dialogue.clickDialogueOption(3);
-                    int ashesInv = bonesPopulation();
-                    ctx.onCondition(() -> bonesPopulation() > ashesInv, 250, 10);
+                    int bonesInv = bonesPopulation();
+                    ctx.onCondition(() -> bonesPopulation() > bonesInv, 250, 10);
                 }
 
-                if (ctx.inventory.populate().filter(30065).population() != 0) {
+                if (ctx.inventory.populate().filter(bonesName).filter(i -> !i.isStackable()).population() != 0) {
                     status = "Walking back in church";
                     ctx.pathing.step(2956,3820);
-                    ctx.sleepCondition(() -> ctx.pathing.inMotion(), 2000);
+                    //ctx.sleepCondition(() -> ctx.pathing.inMotion(), 2000);
+                    ctx.onCondition(() -> ctx.pathing.inMotion(), 250, 10);
                 }
             }
         }
     }
 
     private void sacrificeTask() {
-        SimpleItem bonesInventory = ctx.inventory.populate().filter(30065).next();
+        SimpleItem bonesInventory = ctx.inventory.populate().filter(bonesName).filter(i -> !i.isStackable()).reverse().next();
         SimpleObject chaosAltar = ctx.objects.populate().filter("Chaos altar").next();
         status = "Sacrificing task";
         if (bonesInventory != null && bonesInventory.validateInteractable() && chaosAltar != null && chaosAltar.validateInteractable()) {
@@ -166,51 +190,73 @@ public class eMain extends Script{
             bonesInventory.click("Use");
             ctx.sleep(200);
             chaosAltar.click("Use");
-            int ashesInv = bonesPopulation();
-            ctx.onCondition(() -> bonesPopulation() < ashesInv, 250, 10);
+            //BotUtils.eActions.interactWith(chaosAltar, String.valueOf(GAME_OBJECT_FIRST_OPTION));
+            int bonesInv = bonesPopulation();
+            ctx.onCondition(() -> bonesPopulation() < bonesInv, 250, 10);
         }
     }
+
+    private int getLogoutCount() {
+        String count = Objects.requireNonNull(eGui.minPlayersInArea.getSelectedItem()).toString();
+        int minPlayers = -1;
+        switch (count) {
+            case "Disable logout":
+                minPlayers = 0;
+                break;
+            case "Only you":
+                minPlayers = 1;
+                break;
+            case "You + 1":
+                minPlayers = 2;
+                break;
+            case "You + 2":
+                minPlayers = 3;
+                break;
+            case "You + 3":
+                minPlayers = 4;
+                break;
+        }
+        return minPlayers;
+    }
+
 
     private boolean spotReachable() {
         return ctx.pathing.reachable(new WorldPoint(2956, 3817, 0));
     }
 
     private int bonesPopulation() {
-        return ctx.inventory.populate().filter(30065).population();
+        return ctx.inventory.populate().filter(bonesName).population();
     }
 
-
-    public static String currentTime() {
+    public static String getCurrentTimeFormatted() {
         return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
-    }
-
-    public String getPlayerName() {
-        if (playerGameName == null) {
-            playerGameName = ctx.players.getLocal().getName();
-        }
-        return playerGameName;
     }
 
     @Override
     public void onTerminate() {
+
+        this.ctx.updateStatus("-------------- " + getCurrentTimeFormatted() + " --------------");
+        this.ctx.updateStatus("We have sacrificed " + count + " bones/ashes.");
+        this.ctx.updateStatus("-----------------------------------");
+        this.ctx.updateStatus("----- Thank You & Good Luck! ------");
+        this.ctx.updateStatus("-----------------------------------");
+
+
         this.startingSkillLevel = 0L;
         this.startingSkillExp = 0L;
         status = "Stopping bot";
         gui.setVisible(false);
         hidePaint = true;
-        ctx.updateStatus("Logs burned: " + count);
+        bonesName = null;
+        logOut = false;
 
-        this.ctx.updateStatus("-------------- " + currentTime() + " --------------");
-        this.ctx.updateStatus("----------------------");
-        this.ctx.updateStatus("Thank You & Good Luck!");
-        this.ctx.updateStatus("----------------------");
     }
 
     @Override
     public void onChatMessage(ChatMessage m) {
         ChatMessageType getType = m.getType();
         net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
-        playerGameName = getPlayerName();
+        playerGameName = eAutoResponser.getPlayerName(ctx);
 
         if (m.getMessage() == null) {
             return;
@@ -223,8 +269,8 @@ public class eMain extends Script{
             senderName = senderName.replaceAll("<[^>]+>", "").trim();
 
             if (senderName.contains(playerGameName)) {
-                ctx.updateStatus(currentTime() + " Someone asked for you");
-                ctx.updateStatus(currentTime() + " Stopping script");
+                ctx.updateStatus(getCurrentTimeFormatted() + " Someone asked for you");
+                ctx.updateStatus(getCurrentTimeFormatted() + " Stopping script");
                 ctx.stopScript();
             }
 
@@ -251,10 +297,10 @@ public class eMain extends Script{
             g.drawString("eChaosAltarBot by Esmaabi", 15, 135);
             g.setColor(Color.WHITE);
             g.drawString("Runtime: " + formatTime(runTime), 15, 150);
-            g.drawString("Skill Level: " + this.startingSkillLevel + " (+" + SkillLevelsGained + "), started at " + currentSkillLevel, 15, 165);
+            g.drawString("Skill Level: " + currentSkillLevel + " (+" + SkillLevelsGained + "), started at " + this.startingSkillLevel, 15, 165);
             g.drawString("Current Exp: " + currentSkillExp, 15, 180);
             g.drawString("Exp gained: " + SkillExpGained + " (" + (SkillExpPerHour / 1000L) + "k" + " xp/h)", 15, 195);
-            g.drawString("Logs used: " + count + " (" + ActionsPerHour + " per/h)", 15, 210);
+            g.drawString("Bones used: " + count + " (" + ActionsPerHour + " per/h)", 15, 210);
             g.drawString("Status: " + status, 15, 225);
         }
     }

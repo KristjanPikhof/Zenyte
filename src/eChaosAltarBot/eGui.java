@@ -11,7 +11,7 @@ public class eGui extends JFrame {
 
     private static final long serialVersionUID = 1L;
     private JPanel contentPane;
-    public static JComboBox<String> locationName;
+    public static JComboBox<String> minPlayersInArea;
     public static JComboBox<String> bonesName;
     private final JButton startButton;
     private final JButton pauseButton;
@@ -31,15 +31,15 @@ public class eGui extends JFrame {
         setIconImage(eIcon.getImage());
 
         //Select location menu
-        JLabel lblSelectLocation = new JLabel("Select Location: ");
+        JLabel lblSelectLocation = new JLabel("Allowed players: ");
         lblSelectLocation.setForeground(Color.WHITE);
         lblSelectLocation.setBounds(10, 14, 100, 15);
         contentPane.add(lblSelectLocation);
 
-        locationName = new JComboBox<String>();
-        locationName.setModel(new DefaultComboBoxModel<String>(new String[] {"Falador East", "Varrock East", "Grand Exchange"}));
-        locationName.setBounds(110, 11, 150, 20);
-        contentPane.add(locationName);
+        minPlayersInArea = new JComboBox<String>();
+        minPlayersInArea.setModel(new DefaultComboBoxModel<String>(new String[] {"Only you", "You + 1", "You + 2", "You + 3", "Disable logout"}));
+        minPlayersInArea.setBounds(110, 11, 150, 20);
+        contentPane.add(minPlayersInArea);
 
         //Select logs menu
         JLabel lblSelectLogs = new JLabel("Select bones: ");
@@ -51,13 +51,23 @@ public class eGui extends JFrame {
         bonesName.setModel(new DefaultComboBoxModel<String>(new String[] {
                 "Infernal ashes",
                 "Dragon bones",
+                "Babydragon bones",
                 "Big bones",
-                "Bones",
+                "Normal bones",
                 "Lava dragon bones",
                 "Hydra bones",
+                "Dagannoth bones",
+                "Wyrm bones",
+                "Wyvern bones",
+                "Lava dragon bones",
+                "Superior dragon bones",
+                "Bat bones",
                 "Ourg bones",
-                "Babydragon boness",
-                "Superior dragon bones["
+                "Abyssal ashes",
+                "Malicious ashes",
+                "Abyssal ashes",
+                "Vile ashes",
+                "Fiendish ashes"
         }));
         bonesName.setBounds(110, 36, 150, 20);
         contentPane.add(bonesName);
@@ -71,7 +81,7 @@ public class eGui extends JFrame {
                 pauseButton.setVisible(true);
                 startButton.setVisible(false);
                 bonesName.setEnabled(false);
-                locationName.setEnabled(false);
+                minPlayersInArea.setEnabled(false);
                 eMain.bonesName = Objects.requireNonNull(bonesName.getSelectedItem()).toString();
             }
         });
@@ -87,7 +97,7 @@ public class eGui extends JFrame {
                 pauseButton.setVisible(false);
                 startButton.setVisible(true);
                 bonesName.setEnabled(true);
-                locationName.setEnabled(true);
+                minPlayersInArea.setEnabled(true);
             }
         });
         pauseButton.setBounds(25, 74, 100, 23);

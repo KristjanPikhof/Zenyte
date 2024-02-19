@@ -1,9 +1,9 @@
 package eGlassblowingBotZenyte;
 
-import eRandomEventSolver.eRandomEventForester;
 import net.runelite.api.ChatMessageType;
 import simple.hooks.filters.SimpleShop;
 import simple.hooks.filters.SimpleSkills;
+import simple.hooks.queries.SimpleItemQuery;
 import simple.hooks.scripts.Category;
 import simple.hooks.scripts.LoopingScript;
 import simple.hooks.scripts.ScriptManifest;
@@ -38,30 +38,27 @@ import java.util.concurrent.CompletableFuture;
 
 public class eMain extends TaskScript implements LoopingScript {
 
-    //vars
+    // Constants
+    private static final SimpleSkills.Skills CHOSEN_SKILL = SimpleSkills.Skills.CRAFTING;
+    private static final int BLOWING_PIPE = 1785;
+    private static final int MOLTEN_GLASS = 1775;
+    private static final int BUCKET_OF_SAND = 1783;
+    private static final int SODA_ASH = 1781;
+    private static final int REQUIRED_ITEMS = 10;
+    private static final Set<Integer> CRAFTING_ITEMS = new HashSet<>(Arrays.asList(1919, 4527, 4525, 229, 6667, 567, 4542));
+
+    // Vars
     private long startTime = 0L;
     private long startingSkillLevel;
     private long startingSkillExp;
     private int count;
     private int currentExp;
-    public static String status = null;
     private long lastAnimation = -1;
-
+    public static String status = null;
     public static boolean started;
     private static boolean hidePaint = false;
     private static String playerGameName;
-
-    //items
-    private final Set<Integer> craftingItems = new HashSet<>(Arrays.asList(1919, 4527, 4525, 229, 6667, 567, 4542));
-    private static final int blowingPipe = 1785;
-    private static final int moltenGlass = 1775;
-    private static final int bucketOfSand = 1783;
-    private static final int sodaAsh = 1781;
-    private static final int REQUIRED_ITEMS = 10;
-
-    public static String currentTime() {
-        return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
-    }
+    private boolean errorAppeared;
 
     //Tasks
     List<Task> tasks = new ArrayList<>();
@@ -79,10 +76,9 @@ public class eMain extends TaskScript implements LoopingScript {
     @Override
     public void onExecute() {
 
-        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));
+        //tasks.addAll(Arrays.asList());
 
         System.out.println("Started eGlassblowingBot!");
-
 
         this.ctx.updateStatus("--------------- " + currentTime() + " ---------------");
         this.ctx.updateStatus("-------------------------------------");
@@ -92,9 +88,9 @@ public class eMain extends TaskScript implements LoopingScript {
 
         status = "Setting up bot";
         this.startTime = System.currentTimeMillis();
-        this.startingSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.CRAFTING);
-        this.startingSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.CRAFTING);
-        currentExp = this.ctx.skills.experience(SimpleSkills.Skills.CRAFTING);// for actions counter by xp drop
+        this.startingSkillLevel = this.ctx.skills.realLevel(CHOSEN_SKILL);
+        this.startingSkillExp = this.ctx.skills.experience(CHOSEN_SKILL);
+        currentExp = this.ctx.skills.experience(CHOSEN_SKILL);// for actions counter by xp drop
         count = 0;
         ctx.viewport.angle(270);
         ctx.viewport.pitch(true);
@@ -114,22 +110,11 @@ public class eMain extends TaskScript implements LoopingScript {
         }
 
         if (ctx.magic.spellBook() != Magic.SpellBook.LUNAR) {
-            ctx.game.tab(Game.Tab.MAGIC);
-            ctx.game.tab(Game.Tab.INVENTORY);
-            ctx.game.tab(Game.Tab.MAGIC);
-            ctx.game.tab(Game.Tab.INVENTORY);
-            ctx.game.tab(Game.Tab.MAGIC);
-            ctx.game.tab(Game.Tab.INVENTORY);
-            ctx.game.tab(Game.Tab.MAGIC);
+            switchTabs(Game.Tab.MAGIC, Game.Tab.INVENTORY, 4);  // Switch tabs 4 times
             status = "Lunar spellbook required!";
-            ctx.game.tab(Game.Tab.INVENTORY);
-            ctx.updateStatus("Stopping script");
-            ctx.game.tab(Game.Tab.MAGIC);
-            ctx.updateStatus("and start script over!");
-            ctx.game.tab(Game.Tab.INVENTORY);
-            ctx.updateStatus("Please change spellbook to normal");
-            ctx.game.tab(Game.Tab.MAGIC);
-            ctx.sleep(10000);
+            ctx.log("Stopping script");
+            ctx.log("Please change spellbook to Lunar");
+            ctx.sleep(5000);
             ctx.stopScript();
         }
 
@@ -138,134 +123,169 @@ public class eMain extends TaskScript implements LoopingScript {
 
         } else {
 
-            if (!ctx.shop.shopOpen() && !ctx.inventory.populate().filter(10980).isEmpty()
-                    && ctx.inventory.populate().filter(moltenGlass, bucketOfSand, sodaAsh).isEmpty()) { // empty light orbs drop task
-                status = "Dropping empty light orbs";
-                ctx.inventory.populate().filter(10980).forEach((item) -> ctx.inventory.dropItem(item));
-                ctx.onCondition(() -> ctx.inventory.populate().filter(10980).isEmpty(), 200, 10);
+            if (errorAppeared) {
+                sellingGoods();
             }
 
-            if (ctx.inventory.populate().filter(moltenGlass, bucketOfSand, sodaAsh).isEmpty()) {
-                if (ctx.shop.shopOpen()) {
-                    shoppingTask();
-                } else {
+            if (!ctx.shop.shopOpen() && hasItemsInInventory(10980) && !hasItemsInInventory(MOLTEN_GLASS, BUCKET_OF_SAND, SODA_ASH)) {
+                status = "Dropping empty light orbs";
+                getItemsFiltered(10980).forEach(item -> ctx.inventory.dropItem(item));
+                ctx.onCondition(() -> !hasItemsInInventory(10980), 200, 10);
+            }
+
+            if (!hasItemsInInventory(MOLTEN_GLASS, BUCKET_OF_SAND, SODA_ASH)) {
+                if (!ctx.shop.shopOpen()) {
                     openShopTask();
                 }
+                shoppingTask();
             }
 
-            if (ctx.inventory.populate().filter(moltenGlass).isEmpty() && (!ctx.inventory.populate().filter(bucketOfSand).isEmpty()
-                    && !ctx.inventory.populate().filter(sodaAsh).isEmpty())) { // Making molten glass
-
+            if (hasItemsInInventory(BUCKET_OF_SAND, SODA_ASH) && !hasItemsInInventory(MOLTEN_GLASS)) {
                 if (ctx.shop.shopOpen()) {
                     updateStatus("Closing shop");
                     ctx.shop.closeShop();
                 }
 
-                if ((!ctx.inventory.populate().filter(sodaAsh).isEmpty() && !ctx.inventory.populate().filter(bucketOfSand).isEmpty())
-                        && ctx.inventory.populate().filter(moltenGlass).isEmpty() && !ctx.shop.shopOpen()) {
+                if (hasItemsInInventory(SODA_ASH, BUCKET_OF_SAND) && !ctx.shop.shopOpen()) {
                     status = "Making molten glass";
                     ctx.magic.castSpellOnce("Superglass Make");
                     ctx.sleep(1200);
-                    ctx.onCondition(() -> !ctx.inventory.populate().filter(moltenGlass).isEmpty(), 200, 10);
-                }
-
-            }
-
-            if (!ctx.inventory.populate().filter(moltenGlass).isEmpty() && !ctx.shop.shopOpen()) { //Glassblowing items
-
-                SimpleItem glassblowingPipe = ctx.inventory.populate().filter(blowingPipe).next();
-                SimpleItem moltenGlassInv = ctx.inventory.populate().filter(moltenGlass).next();
-                status = "Glassblowing";
-
-                if (ctx.players.getLocal().getAnimation() != 884 && (System.currentTimeMillis() > (lastAnimation + 3000))) {
-
-                    if (glassblowingPipe != null && glassblowingPipe.validateInteractable()
-                            && moltenGlassInv != null && moltenGlassInv.validateInteractable()
-                            && !ctx.dialogue.dialogueOpen()) {
-                        glassblowingPipe.click("Use");
-                        ctx.sleep(100);
-                        moltenGlassInv.click(0);
-                        ctx.sleepCondition(() -> ctx.dialogue.dialogueOpen(), 2000);
-                    }
-
-                    if (ctx.dialogue.dialogueOpen()) {
-                        updateStatus("Making " + eGui.nameOfItem);
-                        SimpleWidget makeAllButton = ctx.widgets.getWidget(270, 12); //Make ALL button
-                        SimpleWidget itemToMake = ctx.widgets.getWidget(eGui.widgetItem1, eGui.widgetItem2); //Item from GUI
-                        if (itemToMake.validateInteractable() && !itemToMake.isHidden()) {
-                            makeAllButton.click(0);
-                            ctx.sleep(50);
-                            itemToMake.click(0);
-                        }
-                        ctx.onCondition(() -> ctx.players.getLocal().isAnimating(), 200,10);
-                    }
-
-                } else if (ctx.players.getLocal().isAnimating()) {
-                    lastAnimation = System.currentTimeMillis();
+                    ctx.onCondition(() -> hasItemsInInventory(MOLTEN_GLASS), 200, 10);
                 }
             }
+
+            if (hasItemsInInventory(MOLTEN_GLASS) && !ctx.shop.shopOpen()) {
+                glassblowingItems();
+            }
+        }
+    }
+
+    private void glassblowingItems() {
+        SimpleItem glassblowingPipe = ctx.inventory.populate().filter(BLOWING_PIPE).next();
+        SimpleItem moltenGlassInv = ctx.inventory.populate().filter(MOLTEN_GLASS).next();
+        status = "Glassblowing";
+
+        if (ctx.players.getLocal().getAnimation() != 884 && (System.currentTimeMillis() > (lastAnimation + 3000))) {
+
+            if (glassblowingPipe != null && glassblowingPipe.validateInteractable()
+                    && moltenGlassInv != null && moltenGlassInv.validateInteractable()
+                    && !ctx.dialogue.dialogueOpen()) {
+                glassblowingPipe.click("Use");
+                ctx.sleep(100);
+                moltenGlassInv.click(0);
+                ctx.onCondition(() -> ctx.dialogue.dialogueOpen(), 250, 10);
+            }
+
+            if (ctx.dialogue.dialogueOpen()) {
+                updateStatus("Making " + eGui.nameOfItem);
+                SimpleWidget makeAllButton = ctx.widgets.getWidget(270, 12); //Make ALL button
+                SimpleWidget itemToMake = ctx.widgets.getWidget(eGui.widgetItem1, eGui.widgetItem2); //Item from GUI
+                if (itemToMake.validateInteractable() && !itemToMake.isHidden()) {
+                    makeAllButton.click(0);
+                    ctx.sleep(50);
+                    itemToMake.click(0);
+                }
+                ctx.onCondition(() -> ctx.players.getLocal().isAnimating(), 250,10);
+            }
+
+        } else if (ctx.players.getLocal().isAnimating()) {
+            lastAnimation = System.currentTimeMillis();
         }
     }
 
     private void sellingGoods() {
+        if (!ctx.shop.shopOpen()) {
+            openShopTask();
+        }
+
         updateStatus("Selling items");
-        for (int itemId : craftingItems) {
+
+        if (errorAppeared) {
+            ctx.shop.sell(BUCKET_OF_SAND, SimpleShop.Amount.FIFTY);
+            ctx.shop.sell(SODA_ASH, SimpleShop.Amount.FIFTY);
+            ctx.onCondition(() -> hasItemsInInventory(BUCKET_OF_SAND, SODA_ASH));
+            errorAppeared = false;
+        }
+
+        for (int itemId : CRAFTING_ITEMS) {
             if (!ctx.inventory.populate().filter(itemId).isEmpty()) {
                 ctx.shop.sell(itemId, SimpleShop.Amount.FIFTY);
-                ctx.onCondition(() -> ctx.inventory.populate().filter(itemId).isEmpty(), 100, 10);
+                ctx.onCondition(() -> !hasItemsInInventory(itemId), 250, 8);
             }
         }
     }
 
-    private void openShopTask() {
-        if (!ctx.shop.shopOpen()) {
-            updateStatus("Opening shop");
-            SimpleNpc traderCrew = ctx.npcs.populate().filter("Trader Crewmember").filterHasAction("Trade").nearest().next();
-            if (traderCrew != null && traderCrew.validateInteractable()) {
-                ctx.viewport.turnTo(traderCrew);
-                traderCrew.click("Trade", "Trader Crewmember");
-                CompletableFuture<Boolean> shopOpenFuture = CompletableFuture.supplyAsync(() -> ctx.onCondition(() -> ctx.shop.shopOpen(), 100, 10));
-                shopOpenFuture.join();
-            } else {
-                updateStatus("Charter Trader not found");
-                ctx.sleep(5000);
-                updateStatus("Stopping script");
-                ctx.stopScript();
+    private boolean noCraftingItemsInInventory() {
+        for (int itemId : CRAFTING_ITEMS) {
+            if (hasItemsInInventory(itemId)) {
+                return false;
             }
+        }
+        return true;
+    }
+
+    private void openShopTask() {
+
+        SimpleNpc traderCrew = ctx.npcs.populate().filter("Trader Crewmember").filterHasAction("Trade").nearest().next();
+
+        if (ctx.shop.shopOpen()) return;
+
+        if (traderCrew == null) {
+            ctx.log("Trader Crewmember not found");
+            ctx.sendLogout();
+        }
+
+        if (traderCrew != null && traderCrew.validateInteractable()) {
+            updateStatus("Opening shop");
+            if (!traderCrew.visibleOnScreen()) {
+                ctx.pathing.step(traderCrew.getLocation());
+                ctx.viewport.turnTo(traderCrew);
+            }
+            traderCrew.menuAction("Trade");
+            ctx.onCondition(() -> ctx.shop.shopOpen());
         }
     }
 
     private void shoppingTask() {
 
-        if (ctx.shop.shopOpen()) {
-            sellingGoods();
+        if (!ctx.shop.shopOpen()) return;
 
+        if (!noCraftingItemsInInventory()) {
+            sellingGoods();
+        }
+
+        if (noCraftingItemsInInventory()) {
             CompletableFuture<Void> buyItemsFuture = CompletableFuture.runAsync(() -> {
-                int blowingPipeCount = ctx.inventory.populate().filter(blowingPipe).population();
-                int sandCount = ctx.inventory.populate().filter(bucketOfSand).population();
-                int sodaAshCount = ctx.inventory.populate().filter(sodaAsh).population();
+                int blowingPipeCount = ctx.inventory.populate().filter(BLOWING_PIPE).population();
+                int sandCount = ctx.inventory.populate().filter(BUCKET_OF_SAND).population();
+                int sodaAshCount = ctx.inventory.populate().filter(SODA_ASH).population();
 
                 if (blowingPipeCount < 1) {
-                    buyItem(blowingPipe, SimpleShop.Amount.ONE, "glassblowing pipe");
+                    buyItem(BLOWING_PIPE, SimpleShop.Amount.ONE, "glassblowing pipe");
                 }
 
                 if (sandCount < REQUIRED_ITEMS) {
-                    buyItem(bucketOfSand, SimpleShop.Amount.TEN, "soda ashes");
+                    buyItem(BUCKET_OF_SAND, SimpleShop.Amount.TEN, "soda ashes");
                 }
 
                 if (sodaAshCount < REQUIRED_ITEMS) {
-                    buyItem(sodaAsh, SimpleShop.Amount.TEN,"buckets of sand");
+                    buyItem(SODA_ASH, SimpleShop.Amount.TEN, "buckets of sand");
                 }
             });
 
             buyItemsFuture.join();
 
-            int sandPopulation = ctx.inventory.populate().filter(bucketOfSand).population();
-            int sodaAshPopulation = ctx.inventory.populate().filter(sodaAsh).population();
+            int sandPopulation = ctx.inventory.populate().filter(BUCKET_OF_SAND).population();
+            int sodaAshPopulation = ctx.inventory.populate().filter(SODA_ASH).population();
 
             if (sandPopulation == REQUIRED_ITEMS && sodaAshPopulation == REQUIRED_ITEMS) {
                 updateStatus("Closing shop");
                 ctx.shop.closeShop();
+            } else {
+                sellingGoods();
+                ctx.shop.sell(BUCKET_OF_SAND, SimpleShop.Amount.FIFTY);
+                ctx.shop.sell(SODA_ASH, SimpleShop.Amount.FIFTY);
+                ctx.shop.sell(MOLTEN_GLASS, SimpleShop.Amount.FIFTY);
             }
         }
     }
@@ -273,10 +293,22 @@ public class eMain extends TaskScript implements LoopingScript {
     private void buyItem(int itemId, SimpleShop.Amount amount, String itemName) {
         updateStatus("Buying " + itemName);
         ctx.shop.buy(itemId, amount);
-        CompletableFuture<Void> itemBoughtFuture = CompletableFuture.runAsync(() -> {
-            ctx.onCondition(() -> !ctx.inventory.populate().filter(itemId).isEmpty(), 100, 10);
-        });
-        itemBoughtFuture.join();
+        ctx.onCondition(() -> hasItemsInInventory(itemId), 100, 10);
+    }
+
+    private SimpleItemQuery<SimpleItem> getItemsFiltered(int... itemIds) {
+        return ctx.inventory.populate().filter(itemIds);
+    }
+
+    private boolean hasItemsInInventory(int... itemIds) {
+        return !getItemsFiltered(itemIds).isEmpty();
+    }
+
+    private void switchTabs(Game.Tab tabOne, Game.Tab tabTwo, int times) {
+        for (int i = 0; i < times; i++) {
+            ctx.game.tab(tabOne);
+            ctx.game.tab(tabTwo);
+        }
     }
 
     public String getPlayerName() {
@@ -290,6 +322,10 @@ public class eMain extends TaskScript implements LoopingScript {
         status = newStatus;
         ctx.updateStatus(status);
         System.out.println(status);
+    }
+
+    public static String currentTime() {
+        return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
     }
 
     @Override
@@ -314,24 +350,25 @@ public class eMain extends TaskScript implements LoopingScript {
         ChatMessageType getType = m.getType();
         net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
         playerGameName = getPlayerName();
+        String gameMessage = getEvent.getMessage();
 
         if (m.getMessage() == null) {
             return;
         }
 
-        if (m.getMessage() != null) {
-            String message = m.getMessage().toLowerCase();
-            if (message.contains("don't have enough")) {
-                ctx.updateStatus(currentTime() + " Out of coins");
-                ctx.updateStatus(currentTime() + " Stopping script");
-                ctx.sleep(3000);
-                ctx.stopScript();
-            } else if (message.contains("do not have enough")) {
-                ctx.updateStatus(currentTime() + " Out of runes");
-                ctx.updateStatus(currentTime() + " Stopping script");
-                ctx.sleep(3000);
-                ctx.stopScript();
-            }
+        String message = m.getMessage().toLowerCase();
+        if (message.contains("don't have enough")) {
+            ctx.updateStatus(currentTime() + " Out of coins");
+            ctx.updateStatus(currentTime() + " Stopping script");
+            ctx.sleep(3000);
+            ctx.stopScript();
+        } else if (message.contains("do not have enough")) {
+            ctx.updateStatus(currentTime() + " Out of runes");
+            ctx.updateStatus(currentTime() + " Stopping script");
+            ctx.sleep(3000);
+            ctx.stopScript();
+        } else if (message.contains("need some sand to cast") || message.contains("need either some soda ash or seaweed to")) {
+            errorAppeared = true;
         }
 
         if (getType == ChatMessageType.PUBLICCHAT) {
@@ -346,6 +383,8 @@ public class eMain extends TaskScript implements LoopingScript {
                 ctx.stopScript();
             }
         }
+
+        Utility.Trivia.eTriviaInfo.handleBroadcastMessage(getType, gameMessage);
     }
 
     @Override
@@ -362,15 +401,15 @@ public class eMain extends TaskScript implements LoopingScript {
         }
 
         // Get runtime and skill information
-        long runTime = System.currentTimeMillis() - this.startTime;
-        long currentSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.CRAFTING);
-        long currentSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.CRAFTING);
+        String runTime = ctx.paint.formatTime(System.currentTimeMillis() - startTime);
+        long currentSkillLevel = this.ctx.skills.realLevel(CHOSEN_SKILL);
+        long currentSkillExp = this.ctx.skills.experience(CHOSEN_SKILL);
         long skillLevelsGained = currentSkillLevel - this.startingSkillLevel;
         long skillExpGained = currentSkillExp - this.startingSkillExp;
 
         // Calculate experience and actions per hour
-        long skillExpPerHour = skillExpGained * 3600000L / runTime;
-        long actionsPerHour = count * 3600000L / (System.currentTimeMillis() - this.startTime);
+        long skillExpPerHour = ctx.paint.valuePerHour((int) skillExpGained, startTime);
+        long actionsPerHour = ctx.paint.valuePerHour(count, startTime);
 
         // Set up colors
         Color philippineRed = new Color(196, 18, 48);
@@ -387,24 +426,14 @@ public class eMain extends TaskScript implements LoopingScript {
             g.setColor(philippineRed);
             g.drawString("eGlassblowingBot by Esmaabi", 15, 135);
             g.setColor(Color.WHITE);
-            g.drawString("Runtime: " + formatTime(runTime), 15, 150);
-            g.drawString("Skill Level: " + this.startingSkillLevel + " (+" + skillLevelsGained + "), started at " + currentSkillLevel, 15, 165);
+            g.drawString("Runtime: " + runTime, 15, 150);
+            g.drawString("Skill Level: " + currentSkillLevel + " (+" + skillLevelsGained + "), started at " + this.startingSkillLevel, 15, 165);
             g.drawString("Current Exp: " + currentSkillExp, 15, 180);
             g.drawString("Exp gained: " + skillExpGained + " (" + (skillExpPerHour / 1000L) + "k xp/h)", 15, 195);
             g.drawString("Actions made: " + count + " (" + actionsPerHour + " per/h)", 15, 210);
             g.drawString("Status: " + status, 15, 225);
 
         }
-    }
-
-    private String formatTime(long ms) {
-        long s = ms / 1000L;
-        long m = s / 60L;
-        long h = m / 60L;
-        s %= 60L;
-        m %= 60L;
-        h %= 24L;
-        return String.format("%02d:%02d:%02d", h, m, s);
     }
 
 }

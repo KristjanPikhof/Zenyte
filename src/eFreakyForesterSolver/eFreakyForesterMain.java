@@ -66,7 +66,6 @@ public class eFreakyForesterMain extends Script {
         answerWithTails = -1;
         answerDrop = -1;
         droppedItem = -1;
-
     }
 
     @Override

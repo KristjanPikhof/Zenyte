@@ -99,7 +99,7 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
 
     @Override
     public void onExecute() {
-        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));
+        tasks.addAll(Arrays.asList());
         System.out.println("Started eSacredEelBot Zenyte!");
         started = false;
         status = "Setting up config";
@@ -289,11 +289,16 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
             senderName = senderName.replaceAll("<[^>]+>", "").trim();
 
             if (senderName.contains(playerGameName)) {
-                ctx.updateStatus(currentTime() + " Someone asked for you");
+                ctx.updateStatus(currentTime() + " Someone asked from you");
                 ctx.updateStatus(currentTime() + " Stopping script");
                 ctx.stopScript();
             }
 
+            if (!senderName.contains(playerGameName) && getEvent.getMessage().toLowerCase().contains(playerGameName.toLowerCase())) {
+                ctx.updateStatus(currentTime() + " Someone asked for you");
+                ctx.updateStatus(currentTime() + " Stopping script");
+                ctx.stopScript();
+            }
         }
     }
 

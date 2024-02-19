@@ -73,7 +73,7 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onExecute() {
-        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));
+        tasks.addAll(Arrays.asList());
         System.out.println("Started ePotionBuyer!");
         initializeGUI();
 

@@ -1,10 +1,18 @@
 package eFiremakingBotZenyte;
 
+import simple.robot.api.ClientContext;
+
 import javax.swing.*;
 import java.awt.*;
 import java.util.Objects;
 
 public class eGui extends JFrame {
+    private static ClientContext ctx;
+
+    public eGui(ClientContext ctx) {
+        eGui.ctx = ctx;
+    }
+
     private static final long serialVersionUID = 1L;
     private static final String[] LOCATIONS = {"Falador East", "Varrock East", "Grand Exchange"};
     private static final String[] LOGS = {
@@ -13,7 +21,7 @@ public class eGui extends JFrame {
     };
 
     private JComboBox<String> locationComboBox;
-    private JComboBox<String> logsComboBox;
+    private static JComboBox<String> logsComboBox;
     private JButton startButton;
     private JButton pauseButton;
 
@@ -54,6 +62,7 @@ public class eGui extends JFrame {
         constraints.gridx = 1; // Setting x-axis position to 1
         locationComboBox = addComboBox(LOCATIONS, contentPane, constraints);
         locationComboBox.setPreferredSize(new Dimension(150, locationComboBox.getPreferredSize().height));
+        locationComboBox.setToolTipText("Choose firemaking location. Start near bank.");
 
         constraints.gridx = 0; // Resetting x-axis position to 0
         constraints.gridy++; // Moving to next row
@@ -63,6 +72,7 @@ public class eGui extends JFrame {
         constraints.gridx = 1; // Setting x-axis position to 1
         logsComboBox = addComboBox(LOGS, contentPane, constraints);
         logsComboBox.setPreferredSize(new Dimension(150, logsComboBox.getPreferredSize().height));
+        logsComboBox.setToolTipText("Choose logs you want to burn.");
 
         constraints.gridx = 0; // Resetting x-axis position to 0
         constraints.gridy++; // Moving to next row
@@ -81,7 +91,6 @@ public class eGui extends JFrame {
         pauseButton.setBackground(Color.RED);
         buttonsPanel.add(pauseButton);
         contentPane.add(buttonsPanel, constraints);
-
     }
 
     private void addLabel(String text, Container container, GridBagConstraints constraints, boolean isTitle) {
@@ -108,7 +117,6 @@ public class eGui extends JFrame {
         startButton.setVisible(false);
         logsComboBox.setEnabled(false);
         locationComboBox.setEnabled(false);
-        eMain.woodName = Objects.requireNonNull(getLogsComboBox().getSelectedItem()).toString();
     }
 
     private void pauseBot() {
@@ -123,7 +131,7 @@ public class eGui extends JFrame {
         return locationComboBox;
     }
 
-    public JComboBox<String> getLogsComboBox() {
-        return logsComboBox;
+    public static String getLogsComboBox() {
+        return Objects.requireNonNull(logsComboBox.getSelectedItem()).toString();
     }
 }

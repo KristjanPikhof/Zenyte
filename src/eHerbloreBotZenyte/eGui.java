@@ -9,7 +9,7 @@ import java.util.Objects;
 
 public class eGui extends JFrame {
     private static final long serialVersionUID = 1L;
-    private static final String[] POTIONS = {"Super energy potion", "Staming potion", "Zamorak brew", "Super strenght potion", "Super attack potion", "Super defence potion", "Ranging potion", "Magic potion", "Prayer potion", "Super restore", "Saradomin brew", "Superantipoison", "Super combat potion"};
+    private static final String[] POTIONS = {"Super energy potion", "Staming potion", "Zamorak brew", "Super strenght potion", "Super attack potion", "Super defence potion", "Ranging potion", "Magic potion", "Prayer potion", "Super restore", "Saradomin brew", "Superantipoison", "Bastion potion", "Antifire potion", "Super antifire potion", "Super combat potion"};
     public static JComboBox<String> potionsComboBox;
     private JTextField itemTextField;
     private JButton startButton;

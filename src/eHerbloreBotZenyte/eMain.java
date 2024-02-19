@@ -10,10 +10,7 @@ import simple.hooks.scripts.ScriptManifest;
 import simple.hooks.scripts.task.Task;
 import simple.hooks.scripts.task.TaskScript;
 import simple.hooks.simplebot.ChatMessage;
-import simple.hooks.wrappers.SimpleItem;
-import simple.hooks.wrappers.SimpleNpc;
-import simple.hooks.wrappers.SimpleObject;
-import simple.hooks.wrappers.SimplePlayer;
+import simple.hooks.wrappers.*;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -48,7 +45,8 @@ public class eMain extends TaskScript implements LoopingScript {
     // Constants
     private static final String[] BANK_NAME = {"Bank booth", "Bank chest"};
     private static final String[] BANKER_NAME = {"Banker","Bird's-Eye' Jack", "Arnold Lydspor", "Banker tutor", "Cornelius", "Emerald Benedict", "Eniola", "Fadli", "Financial Wizard", "Financial Seer", "Ghost banker", "Gnome banker", "Gundai", "Jade", "Jumaane", "Magnus Gram", "Nardah Banker", "Odovacar", "Peer the Seer", "Sirsal Banker", "Squire", "TzHaar-Ket-Yil", "TzHaar-Ket-Zuh", "Yusuf"};
-
+    private final static int INVENTORY_BAG_WIDGET_ID = 548;
+    private final static int INVENTORY_BAG_CHILD_ID = 58;
 
     // Variables
     private long startTime = 0L;
@@ -89,6 +87,9 @@ public class eMain extends TaskScript implements LoopingScript {
         SUPER_RESTORE("super restores", 3004, 223),
         SARADOMIN_BREWS("saradomin brews", 3002, 6693),
         SUPERANTIPOISONS("superantipoisons", 101, 235),
+        BASTION_POISONS("bastion potion", 22443, 245),
+        ANTIFIRE_POTIONS("antifire potions", 2483, 241),
+        SUPER_ANTIFIRE_POTIONS("super antifire potions", 2452, 21975),
         SUPER_COMBAT_POTIONS("super combat potions", 111, 0); // Set secondIngrediente to 0 since it's not needed for this item
 
         private final String nameOfItem;
@@ -130,7 +131,7 @@ public class eMain extends TaskScript implements LoopingScript {
     @Override
     public void onExecute() {
 
-        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));// Adds tasks to our {task} list for execution
+        tasks.addAll(Arrays.asList());// Adds tasks to our {task} list for execution
 
         initializeGUI();
 
@@ -154,7 +155,6 @@ public class eMain extends TaskScript implements LoopingScript {
         makingSuperCombat = false;
         makingStamingPotions = false;
         count = 0;
-        ctx.viewport.angle(270);
         ctx.viewport.pitch(true);
     }
 
@@ -238,18 +238,18 @@ public class eMain extends TaskScript implements LoopingScript {
             ctx.bank.depositAllExcept(12640); // Amylase
             updateStatus("Withdrawing herblore supplies");
             if (makingStamingPotions) {
-                ctx.bank.withdraw(unfinishedPotionID, 27);
-                ctx.bank.withdraw(secondIngrediente, SimpleBank.Amount.ALL);
+                withdrawItem(unfinishedPotionID, 27);
+                withdrawItem(secondIngrediente, 108);
             } else if (makingSuperCombat) {
-                ctx.bank.withdraw(unfinishedPotionID, 7);
-                ctx.bank.withdraw(2440, 7);
-                ctx.bank.withdraw(2436, 7);
-                ctx.bank.withdraw(2442, 7);
+                withdrawItem(unfinishedPotionID, 7);
+                withdrawItem(2440, 7);
+                withdrawItem(2436, 7);
+                withdrawItem(2442, 7);
             } else {
-                ctx.bank.withdraw(unfinishedPotionID, 14);
+                withdrawItem(unfinishedPotionID, 14);
                 ctx.bank.withdraw(secondIngrediente, 14);
             }
-            ctx.onCondition(() -> ctx.inventory.populate().population() > 14, 3000);
+            ctx.onCondition(() -> ctx.inventory.populate().population() > 14, 200, 12);
             updateStatus("Closing bank");
             ctx.bank.closeBank();
             return;
@@ -260,18 +260,26 @@ public class eMain extends TaskScript implements LoopingScript {
             if (bankChest != null) {
                 updateStatus("Refilling supplies");
                 bankChest.click(1);
-                ctx.onCondition(() -> ctx.bank.bankOpen(), 5000);
+                ctx.onCondition(() -> ctx.bank.bankOpen(), 200, 12);
             } else {
                 SimpleNpc bankerName = getBanker();
                 if (bankerName != null) {
                     updateStatus("Refilling supplies");
                     bankerName.click("Bank");
-                    ctx.onCondition(() -> ctx.bank.bankOpen(), 5000);
+                    ctx.onCondition(() -> ctx.bank.bankOpen(), 200, 12);
                 }
             }
         }
     }
 
+    private void withdrawItem(int id, int amount) {
+        SimpleItem itemBank = ctx.bank.populate().filter(id).next();
+        SimpleItem itemInv = ctx.inventory.populate().filter(id).next();
+        if (itemBank != null && itemInv == null) {
+            updateStatus("Withdrawing " + itemBank.getName());
+            ctx.bank.withdraw(id, amount);
+        }
+    }
     private SimpleObject getBankChest() {
         SimpleObject bankChest = ctx.objects.populate().filter(BANK_NAME).nearest().next();
         if (bankChest != null && bankChest.distanceTo(ctx.players.getLocal()) <= 10 && bankChest.validateInteractable()) {
@@ -292,9 +300,9 @@ public class eMain extends TaskScript implements LoopingScript {
     // Herblore
 
     private void herbTask() {
-        SimpleItem unfPotionInv = ctx.inventory.populate().filter(unfinishedPotionID).next();
-        SimpleItem secondIngredienteInv = ctx.inventory.populate().filter(secondIngrediente).next();
-        boolean itemsNotNull = unfPotionInv != null || secondIngredienteInv != null;
+        SimpleItem unfPotionInv = ctx.inventory.populate().filter(unfinishedPotionID).reverse().next();
+        SimpleItem secondIngredienteInv = ctx.inventory.populate().filter(secondIngrediente).reverse().next();
+        boolean suppliesValid = unfPotionInv != null || secondIngredienteInv != null;
 
         if (!makingStamingPotions) {
             if (ctx.players.getLocal().isAnimating()) {
@@ -302,10 +310,11 @@ public class eMain extends TaskScript implements LoopingScript {
             }
         }
 
-        if (!itemsNotNull) {
+        if (!suppliesValid) {
             openingBank();
         } else {
             updateStatus("Making " + nameOfItem);
+            clickOnBag();
             ctx.inventory.itemOnItem(unfPotionInv, secondIngredienteInv);
             lastAnimation = System.currentTimeMillis();
         }
@@ -314,9 +323,9 @@ public class eMain extends TaskScript implements LoopingScript {
     private void herbStaminaTask() {
         SimpleItem unfPotionInv = ctx.inventory.populate().filter(unfinishedPotionID).reverse().next();
         SimpleItem secondIngredienteInv = ctx.inventory.populate().filter(secondIngrediente).next();
-        boolean itemsNotNull = unfPotionInv != null || secondIngredienteInv != null;
+        boolean suppliesValid = unfPotionInv != null || secondIngredienteInv != null;
 
-        if (!itemsNotNull) {
+        if (!suppliesValid) {
             openingBank();
         } else {
             if (!ctx.dialogue.dialogueOpen()) {
@@ -325,7 +334,7 @@ public class eMain extends TaskScript implements LoopingScript {
             } else {
                 int SPACE_BUTTON = KeyEvent.VK_SPACE;
                 ctx.keyboard.clickKey(SPACE_BUTTON);
-                ctx.sleepCondition(() -> unfPotionInv == null, 30000);
+                ctx.sleepCondition(() -> unfPotionInv != null, 30000); // maybe ?
             }
         }
     }
@@ -335,13 +344,13 @@ public class eMain extends TaskScript implements LoopingScript {
         SimpleItem superStrenght = ctx.inventory.populate().filter(2440).next();
         SimpleItem superAttack = ctx.inventory.populate().filter(2436).next();
         SimpleItem superDefence = ctx.inventory.populate().filter(2442).next();
-        boolean itemsNotNull = unfPotionInv != null && superStrenght != null && superAttack != null && superDefence != null;
+        boolean suppliesValid = unfPotionInv != null && superStrenght != null && superAttack != null && superDefence != null;
 
         if (ctx.players.getLocal().isAnimating()) {
             return;
         }
 
-        if (!itemsNotNull) {
+        if (!suppliesValid) {
             openingBank();
         } else {
             updateStatus("Making " + nameOfItem);
@@ -365,6 +374,13 @@ public class eMain extends TaskScript implements LoopingScript {
         secondIngrediente = item.getSecondIngrediente();
         makingStamingPotions = item == PotionItems.STAMINA_POTIONS;
         makingSuperCombat = item == PotionItems.SUPER_COMBAT_POTIONS;
+    }
+
+    private void clickOnBag() {
+        SimpleWidget inventoryBagWidget = ctx.widgets.getWidget(INVENTORY_BAG_WIDGET_ID, INVENTORY_BAG_CHILD_ID);
+        if (inventoryBagWidget != null) {
+            inventoryBagWidget.click(0);
+        }
     }
 
     //Utility
@@ -470,7 +486,7 @@ public class eMain extends TaskScript implements LoopingScript {
             g.drawString("eHerbloreBot by Esmaabi", 15, 135);
             g.setColor(Color.WHITE);
             g.drawString("Runtime: " + formatTime(runTime), 15, 150);
-            g.drawString("Skill Level: " + this.startingSkillLevel + " (+" + skillLevelsGained + "), started at " + currentSkillLevel, 15, 165);
+            g.drawString("Skill Level: " + currentSkillLevel + " (+" + skillLevelsGained + "), started at " + this.startingSkillLevel, 15, 165);
             g.drawString("Current Exp: " + currentSkillExp, 15, 180);
             g.drawString("Exp gained: " + skillExpGained + " (" + (skillExpPerHour / 1000L) + "k xp/h)", 15, 195);
             g.drawString("Potions made: " + count + " (" + actionsPerHour + " per/h)", 15, 210);

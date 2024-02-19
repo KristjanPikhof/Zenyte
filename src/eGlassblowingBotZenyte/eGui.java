@@ -37,29 +37,7 @@ public class eGui extends JFrame implements ActionListener {
         ImageIcon eIcon = new ImageIcon(Objects.requireNonNull(eGui.class.getResource("esmaabi-icon.png")));
         setIconImage(eIcon.getImage());
 
-        JPanel topPanel = new JPanel();
-        topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.PAGE_AXIS));
-
-        JLabel descriptionLabel = new JLabel("<html><b>Please read <b>eGlassblowingBot</b> description first!</b></html>");
-        topPanel.add(descriptionLabel);
-
-/*        JLabel descriptionText = new JLabel("<html><br>The most effective glassblowing bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br> " +
-                "<ul><li>You must have enough of fire, astral runes & coins in inventory;</li>" +
-                "<li>You can wield <b>any air staff</b>;</li>" +
-                "<li>You must start near <b>charter trader crewmembers</b>;</li>" +
-                "<li>Bot will sell to shop all the crafted items except empty light orb <i>(will drop)</i>;</li>" +
-                "<li>Script will stop if you are out of money / runes.</li></ul><br>" +
-                "For more information check out Esmaabi on SimpleBot!</html>");*/
-        JLabel descriptionText = new JLabel("<html><br>" +
-                "Introducing the most efficient glassblowing bot for Zenyte! " +
-                "<br><br><b>Features and Recommendations:</b><br><br> " + "<ul>" +
-                "<li>Start near <b>charter trader crewmember</b> or bot will stop.</li>" +
-                "<li>The bot will sell all crafted items, except for empty light orbs.</li>" +
-                "<li>It's recommended to wield <b>smoke battlestaff</b> or any elemental staff.</li>" +
-                "<li>Make sure you have enough coins and air/fire/astral runes.</li>" +
-                "<li>The bot will stop if you run out of coins or runes.</li></ul><br>" +
-                "For more information, check out Esmaabi on SimpleBot!</html>");
-        topPanel.add(descriptionText);
+        final JPanel topPanel = getjPanel();
 
         add(topPanel, BorderLayout.NORTH);
 
@@ -109,6 +87,26 @@ public class eGui extends JFrame implements ActionListener {
         add(bottomPanel, BorderLayout.SOUTH);
 
         setVisible(true);
+    }
+
+    private static JPanel getjPanel() {
+        JPanel topPanel = new JPanel();
+        topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.PAGE_AXIS));
+
+        JLabel descriptionLabel = new JLabel("<html><b>Please read <b>eGlassblowingBot</b> description first!</b></html>");
+        topPanel.add(descriptionLabel);
+
+        JLabel descriptionText = new JLabel("<html><br>" +
+                "Introducing the most efficient glassblowing bot for Zenyte! " +
+                "<br><br><b>Features and Recommendations:</b><br><br> " + "<ul>" +
+                "<li>Start near <b>charter trader crewmember</b> or bot will stop.</li>" +
+                "<li>The bot will sell all crafted items, except for empty light orbs.</li>" +
+                "<li>It's recommended to wield <b>smoke battlestaff</b> or any elemental staff.</li>" +
+                "<li>Make sure you have enough coins and air/fire/astral runes.</li>" +
+                "<li>The bot will stop if you run out of coins or runes.</li></ul><br>" +
+                "For more information, check out Esmaabi on SimpleBot!</html>");
+        topPanel.add(descriptionText);
+        return topPanel;
     }
 
     @Override

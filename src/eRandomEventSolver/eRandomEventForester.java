@@ -237,7 +237,11 @@ public class eRandomEventForester extends Task {
 
         ctx.inventory.dropItem(droppingItem);
         droppedItemId = droppingItem.getId();
-        updateStatus("Dropped item id: " + droppedItemId + " saved.");
+        updateStatus("Dropped item id: " + droppingItem + " saved.");
+    }
+
+    public static boolean inForesterRandom(ClientContext ctx) {
+        return ctx.pathing.inArea(forestArea);
     }
 
     private void updateStatus(String newStatus) {

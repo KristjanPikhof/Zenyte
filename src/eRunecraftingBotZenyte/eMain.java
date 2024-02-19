@@ -1,10 +1,9 @@
 package eRunecraftingBotZenyte;
 
-
 import eRandomEventSolver.eRandomEventForester;
 import eRunecraftingBotZenyte.listeners.SkillListener;
 import eRunecraftingBotZenyte.listeners.SkillObserver;
-import net.runelite.api.ChatMessageType;
+import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleBank;
 import simple.hooks.filters.SimpleSkills;
@@ -15,18 +14,23 @@ import simple.hooks.scripts.task.Task;
 import simple.hooks.scripts.task.TaskScript;
 import simple.hooks.simplebot.ChatMessage;
 import simple.hooks.simplebot.Game;
+import simple.hooks.simplebot.Pathing;
 import simple.hooks.wrappers.SimpleItem;
 import simple.hooks.wrappers.SimpleObject;
 import simple.hooks.wrappers.SimpleWidget;
 import simple.robot.utils.WorldArea;
 
 import java.awt.*;
+import java.awt.Point;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BooleanSupplier;
+import java.util.regex.Pattern;
+
+import static simple.hooks.filters.SimpleSkills.Skills.*;
 
 
 @ScriptManifest(author = "Esmaabi", category = Category.RUNECRAFTING, description = " "
@@ -41,7 +45,7 @@ import java.util.function.BooleanSupplier;
 public class eMain extends TaskScript implements SkillListener, LoopingScript {
 
 
-    //vars
+    // Vars
     public static boolean started;
     private long startTime = 0L;
     public static String status = null;
@@ -51,20 +55,22 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
     private int bloodRunes;
     private int denseEssence;
     private boolean chiselTask = false;
-    private boolean shouldMineSouth = true;
-    private int levelsGained;
-    private int experienceGained;
-    private int denseInInventory;
     boolean runningSkillListener = true;
     private boolean scriptStopped = false;
     private static String playerGameName;
+    private static boolean hidePaint;
 
 
-    //stats
-    private long startingSkillLevelMining, startingSkillLevelCrafting, startingSkillLevelRunecrafting;
-    private long startingSkillExpMining, startingSkillExpCrafting, startingSkillExpRunecrafting;
+    // Vars for Paint / Stats
+    private static final Color PhilippineRed = new Color(196, 18, 48);
+    private static final Color RaisinBlack = new Color(35, 31, 32, 127);
+    private static int runecraftingXp, miningXp, craftingXp = 0;
+    private static int runecraftingLvl, miningLvl, craftingLvl = 0;
+    private static int runecraftingLvlGained, miningLvlGained, craftingLvlGained = 0;
+    private static int startingSkillLevelMining, startingSkillLevelCrafting, startingSkillLevelRunecrafting;
+    private static int startingSkillExpMining, startingSkillExpCrafting, startingSkillExpRunecrafting;
 
-    //areas
+    // Areas
     private final WorldArea craftingGuild = new WorldArea (new WorldPoint(2938, 3288, 0), new WorldPoint(2929, 3279, 0));
     private final WorldArea arecuusAltarArea = new WorldArea (new WorldPoint(1683, 3893, 0), new WorldPoint(1726, 3872, 0));
     private final WorldArea bloodAltarArea = new WorldArea(new WorldPoint(1710,3836, 0), new WorldPoint(1722,3822, 0));
@@ -151,7 +157,7 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
 
     @Override
     public void onExecute() {
-        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));// Adds tasks to our {task} list for execution
+        tasks.addAll(Arrays.asList());
 
         System.out.println("Started eRunecraftingBot Zenyte!");
         started = false;
@@ -162,7 +168,6 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
         darkBlocks = 0;
         bloodRunes = 0;
         denseEssence = 0;
-        denseInInventory = 0;
 
         this.ctx.updateStatus("----------------------------------");
         this.ctx.updateStatus("      eRunecraftingBotZenyte      ");
@@ -177,8 +182,8 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
         startingSkillExpCrafting = this.ctx.skills.experience(SimpleSkills.Skills.CRAFTING);
 
         //Runecrafting
-        startingSkillLevelRunecrafting = this.ctx.skills.realLevel(SimpleSkills.Skills.RUNECRAFT);
-        startingSkillExpRunecrafting = this.ctx.skills.experience(SimpleSkills.Skills.RUNECRAFT);
+        startingSkillLevelRunecrafting = this.ctx.skills.realLevel(RUNECRAFT);
+        startingSkillExpRunecrafting = this.ctx.skills.experience(RUNECRAFT);
 
         //GUI
         eGui gui = new eGui();
@@ -206,8 +211,8 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
         }
 
         // Running
-        if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
-            ctx.pathing.running(true);
+        if (!ctx.pathing.running()) {
+            handleEnergy();
         }
 
         switch (playerState) {
@@ -236,10 +241,9 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
         if (ctx.inventory.inventoryFull() || ctx.bank.depositBoxOpen()) {
             depositTask();
         } else {
-            if (ctx.players.getLocal().getAnimation() == -1 && (System.currentTimeMillis() > (lastAnimation + randomSleeping(3000, 4000)))) {
+            if (!ctx.players.getLocal().isAnimating() && (System.currentTimeMillis() > (lastAnimation + randomSleeping(600, 8000)))) {
                 miningTask();
-                ctx.sleep(5000);
-            } else if (ctx.players.getLocal().getAnimation() != -1) {
+            } else if (ctx.players.getLocal().isAnimating()) {
                 lastAnimation = System.currentTimeMillis();
             }
         }
@@ -312,56 +316,84 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
     }
 
 
-    //mining
-    public void depositTask() { //banking task for mining state
+    // Mining
+    private void depositTask() {
         final int BANK_CHEST_ID = 29090;
         SimpleObject depositBox = ctx.objects.populate().filter(BANK_CHEST_ID).filterHasAction("Deposit").nearest().next();
+
+        if (depositBox == null || !depositBox.validateInteractable()) {
+            return;
+        }
+
         if (!ctx.bank.depositBoxOpen()) {
-            if (depositBox != null && depositBox.validateInteractable()) {
-                status = "Opening deposit box";
-                depositBox.click("Deposit");
-                ctx.onCondition(() -> ctx.bank.depositBoxOpen(), randomSleeping(2000, 3500));
-            }
+            status = "Opening deposit box";
+            depositBox.click("Deposit");
+            ctx.onCondition(() -> ctx.bank.depositBoxOpen());
         }
 
         if (ctx.bank.depositBoxOpen()) {
             status = "Depositing inventory";
             ctx.bank.depositAllExcept("Chisel");
             ctx.bank.closeBank();
-            ctx.sleepCondition(() -> ctx.bank.depositBoxOpen(), randomSleeping(1000, 1500));
-            shouldMineSouth = true;
+            ctx.onCondition(() -> !ctx.bank.depositBoxOpen());
         }
     }
 
-    public void miningTask() { //mining task for mining state
-        final int DENSE_RUNESTONE_ID = 8975;
-        //SimpleObject denseStone = ctx.objects.populate().filter("Dense runestone").filter(object -> object.click("Chip", "Dense runestone")).next();
-        SimpleObject denseStoneSouth = ctx.objects.populate().filter(DENSE_RUNESTONE_ID).filter("Chip", "Dense runestone").nearest(southDenseObjectLocation).next();
-        SimpleObject denseStoneNorth = ctx.objects.populate().filter(DENSE_RUNESTONE_ID).filter("Chip", "Dense runestone").nearest(northDenseObjectLocation).next();
+    private void miningTask() {
+        int southRunestoneImposter = ctx.getClient().getObjectDefinition(10796).getImpostor().getId();
+        int northRunestoneImposter = ctx.getClient().getObjectDefinition(8981).getImpostor().getId();
 
-        while (!ctx.inventory.inventoryFull()) {
-            SimpleObject denseStone = shouldMineSouth ? denseStoneSouth : denseStoneNorth;
-            if (denseStone == null) {
-                break;
-            }
-
-            status = "Mining " + (shouldMineSouth ? "south" : "north") + " runestone";
-            denseStone.click("Chip");
-            if (ctx.combat.getSpecialAttackPercentage() == 100) {
-                specialAttack();
-            }
-            ctx.sleep(5000);
-            ctx.sleepCondition(() -> ctx.players.getLocal().getAnimation() == -1, randomSleeping(45000, 90000));
-
-            shouldMineSouth = !shouldMineSouth;
+        if (southRunestoneImposter == ObjectID.DEPLETED_RUNESTONE && northRunestoneImposter == ObjectID.DEPLETED_RUNESTONE) {
+            status = "Both runestones are depleted";
+            //ctx.log("Both runestones are depleted");
+            ctx.sleep(3000);
+            return;
         }
 
-        if (ctx.inventory.inventoryFull()) {
-            depositTask();
+        if (ctx.combat.getSpecialAttackPercentage() == 100) {
+            specialAttack();
+        }
+
+        WorldPoint playerLocation = ctx.players.getLocal().getLocation();
+
+        if (southRunestoneImposter == ObjectID.DENSE_RUNESTONE
+                && (northRunestoneImposter == ObjectID.DEPLETED_RUNESTONE || playerLocation.distanceTo(southDenseObjectLocation) <= playerLocation.distanceTo(northDenseObjectLocation))) {
+            status = "Mining south runestone...";
+            clickRunestone(southDenseObjectLocation);
+            return;
+        }
+
+        if (northRunestoneImposter == ObjectID.DENSE_RUNESTONE) {
+            status = "Mining north runestone...";
+            clickRunestone(northDenseObjectLocation);
+            return;
         }
     }
 
-    public void bankTask() { //banking task for crafting and bloodcrafting states
+    private void clickRunestone(WorldPoint location) {
+        SimpleObject runestone = ctx.objects.populate().filter("Dense runestone").filterHasAction("Chip").nearest(location).next();
+        runestone.click("Chip");
+        ctx.onCondition(() -> ctx.players.getLocal().isAnimating(), 250, 20);
+    }
+
+    private void specialAttack() { //special attack for mining state
+        if (ctx.equipment.populate().filter("Dragon pickaxe").isEmpty()) {
+            return;
+        }
+
+        if (ctx.pathing.inArea(miningArea)) {
+            ctx.combat.toggleSpecialAttack(true);
+            ctx.game.tab(Game.Tab.INVENTORY);
+        }
+    }
+
+    // Banking task for crafting and bloodcrafting states
+    private void bankTask() {
+        final Pattern STAMINA_POTION_PATTERN = Pattern.compile("Stamina potion\\(\\d+\\)");
+        int[] EXCLUDE_STAMINA_POTS = {12625, 12627, 12629, 12631}; // Stamina potions
+        int[] EXCLUDE_DEPOSIT_ITEMS = {1755, 7938, 12625, 12627, 12629, 12631}; // Stamina potions and other items
+        int ENERGY_THRESHOLD = 30;
+
         status = "Starting banking task";
         SimpleObject bankChest = ctx.objects.populate().filter(14886).filterHasAction("Use").nearest().next(); // bank chest
         if (bankChest == null || !bankChest.validateInteractable()) {
@@ -370,51 +402,47 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
         if (!ctx.bank.bankOpen()) {
             status = "Opening bank";
             bankChest.click("Use");
-            ctx.sleepCondition(() -> ctx.bank.bankOpen(), randomSleeping(2000, 3500));
-        }
-        if (!ctx.bank.bankOpen()) {
-            return;
-        }
-        if (playerState == State.CRAFTING) {
-            ctx.bank.depositInventory();
-            if (!ctx.bank.populate().filter(13445).isEmpty()) { // check if there are dense essence blocks in the bank
-                ctx.bank.withdraw(13445, SimpleBank.Amount.ALL);
-            } else {
-                System.out.println("No dense blocks in bank");
-                ctx.updateStatus("No dense blocks in bank");
-                playerState = State.BLOODCRAFTING;
-            }
-        }
-        if (playerState == State.BLOODCRAFTING) {
-            ctx.bank.depositAllExcept(1755, 7938); //chisel and dark fragments
-            if (ctx.inventory.populate().filter(1755).isEmpty()) {
-                System.out.println("Chisel not found in inventory. Withdrawing it.");
-                SimpleWidget quantityOne = ctx.widgets.getWidget(12, 29);
-                if (quantityOne != null && !quantityOne.isHidden()) {
-                    quantityOne.click(0);
+            ctx.onCondition(() -> ctx.bank.bankOpen(), 250, 8);
+        } else {
+
+            if (playerState == State.CRAFTING) {
+                ctx.bank.depositAllExcept(EXCLUDE_STAMINA_POTS);
+                if (ctx.pathing.energyLevel() <= ENERGY_THRESHOLD && ctx.inventory.populate().filter(STAMINA_POTION_PATTERN).isEmpty()) {
+                    withdrawItem(12625); // Stamina potion(4)
                 }
-                ctx.bank.withdraw(1755, SimpleBank.Amount.ONE);
-                ctx.onCondition(() -> !ctx.inventory.populate().filter(1755).isEmpty(), randomSleeping(1000, 1500));
+                if (!ctx.bank.populate().filter(13445).isEmpty()) { // check if there are dense essence blocks in the bank
+                    ctx.bank.withdraw(13445, SimpleBank.Amount.ALL);
+                } else {
+                    ctx.log("No dense blocks in bank");
+                    playerState = State.BLOODCRAFTING;
+                }
             }
-            if (!ctx.bank.populate().filter(13446).isEmpty()) { // check if there are dense essence blocks in the bank
-                ctx.bank.withdraw(13446, SimpleBank.Amount.ALL);
+            if (playerState == State.BLOODCRAFTING) {
+                ctx.bank.depositAllExcept(EXCLUDE_DEPOSIT_ITEMS); //chisel and dark fragments
+                if (ctx.pathing.energyLevel() <= ENERGY_THRESHOLD && ctx.inventory.populate().filter(STAMINA_POTION_PATTERN).isEmpty()) {
+                    withdrawItem(12625); // Stamina potion(4)
+                }
+                if (ctx.inventory.populate().filter(1755).isEmpty()) {
+                    System.out.println("Chisel not found in inventory. Withdrawing it.");
+                    SimpleWidget quantityOne = ctx.widgets.getWidget(12, 29);
+                    if (quantityOne != null && !quantityOne.isHidden()) {
+                        quantityOne.click(0);
+                    }
+                    ctx.bank.withdraw(1755, SimpleBank.Amount.ONE);
+                    ctx.onCondition(() -> !ctx.inventory.populate().filter(1755).isEmpty(), randomSleeping(1000, 1500));
+                }
+                if (!ctx.bank.populate().filter(13446).isEmpty()) { // check if there are dense essence blocks in the bank
+                    ctx.bank.withdraw(13446, SimpleBank.Amount.ALL);
+                }
             }
+            status = "Closing bank";
+            ctx.bank.closeBank();
+            ctx.onCondition(() -> !ctx.bank.bankOpen());
         }
-        status = "Closing bank";
-        ctx.bank.closeBank();
-        ctx.sleepCondition(() -> !ctx.bank.bankOpen(), randomSleeping(2000, 3500));
     }
 
-    public void specialAttack() { //special attack for mining state
-        if (ctx.combat.getSpecialAttackPercentage() == 100
-                && ctx.equipment.populate().filter("Dragon pickaxe").population() == 1
-                && miningArea.containsPoint(ctx.players.getLocal().getLocation())) {
-            ctx.combat.toggleSpecialAttack(true);
-            ctx.game.tab(Game.Tab.INVENTORY);
-        }
-    }
-
-    public void venerateTask() { //making dark blocks using altar for crafting state
+    // Making dark blocks using altar for crafting state
+    private void venerateTask() {
         status = "Clicking Dark Altar";
         SimpleObject darkAltar = ctx.objects.populate().filter(27979).filterHasAction("Venerate").nearest().next();
         if (darkAltar != null && darkAltar.validateInteractable()) {
@@ -424,13 +452,17 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
         darkBlocks += ctx.inventory.populate().filter(13446).population();
     }
 
-    private void walkPath(WorldArea toArea, WorldPoint[] walkPath, boolean reverse) { //walking to blood altar for bloodcrafting state
+    private void walkPath(WorldArea toArea, WorldPoint[] walkPath, boolean reverse) {
         while (!ctx.pathing.inArea(toArea)) {
-            if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
-                ctx.pathing.running(true);
+            if (!ctx.pathing.running()) {
+                handleEnergy();
             }
 
             if (playerState == State.WAITING || scriptStopped) {
+                break;
+            }
+
+            if (!ctx.pathing.inArea(arecuusWholeArea)) {
                 break;
             }
 
@@ -439,7 +471,27 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
         }
     }
 
-    public void chiselTaskStart() { //making dark fragments for bloodcrafting state (altar / bank)
+    private void handleEnergy() {
+        Pathing pathing = ctx.pathing;
+
+        if (pathing.energyLevel() >= 30 && !pathing.running()) {
+            pathing.running(true);
+        }
+
+        if (pathing.energyLevel() < 30) {
+            final SimpleItem potion = ctx.inventory.populate().filter(Pattern.compile("Stamina potion\\(\\d+\\)")).filterHasAction("Drink").next();
+            final int cached = pathing.energyLevel();
+            if (potion == null) {
+                return;
+            }
+            status = ("Drinking " + potion.getName().toLowerCase());
+            if (potion != null && potion.click("Drink")) {
+                ctx.onCondition(() -> pathing.energyLevel() > cached, 250, 8);
+            }
+        }
+    }
+
+    private void chiselTaskStart() { // Making dark fragments for bloodcrafting state (altar / bank)
         SimpleItem chiselTool = ctx.inventory.populate().filter(1755).next();
         SimpleItem darkEssence = ctx.inventory.populate().filter(13446).reverse().next();
         int sleepTime = randomSleeping(20, 75);
@@ -459,20 +511,37 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
     }
 
     //teleporting
-    public void teleportToBankTask() { // teleporting for crafting or bloodcrafting state
+    private void teleportToBankTask() { // teleporting for crafting or bloodcrafting state
         status = "Teleporting to Crafting Guild";
         ctx.game.tab(Game.Tab.EQUIPMENT);
-        if (!ctx.equipment.populate().filter(13342).isEmpty()) {
+        if (!ctx.equipment.populate().filter("Crafting cape(t)").isEmpty()) { // max cape 13342
             SimpleWidget maxCape = ctx.widgets.getWidget(387, 7);//cape slot
             if (maxCape != null && !maxCape.isHidden()) {
-                maxCape.click("Crafting Guild", "Max cape");
+                //maxCape.click("Crafting Guild", "Max cape");
+                maxCape.click("Teleport", "Crafting cape(t)");
                 ctx.sleepCondition(() -> craftingGuild.containsPoint(ctx.players.getLocal().getLocation()), randomSleeping(1000, 3000));
             }
         }
         ctx.game.tab(Game.Tab.INVENTORY);
     }
 
-    public void teleportToArceuusTask() { // teleporting for crafting or bloodcrafting state
+    private void withdrawItem(int ID) {
+        SimpleWidget quantityOne = ctx.widgets.getWidget(12, 29);
+        if (quantityOne != null && !quantityOne.isHidden()) {
+            quantityOne.click(0);
+        }
+        ctx.bank.withdraw(ID, SimpleBank.Amount.ONE);
+        clearBankSearch();
+    }
+
+    private void clearBankSearch() {
+        SimpleWidget searchButton = ctx.widgets.getWidget(12, 40);
+        if (searchButton != null && !searchButton.isHidden()) {
+            searchButton.click(0);
+        }
+    }
+
+    private void teleportToArceuusTask() { // teleporting for crafting or bloodcrafting state
         status = "Teleporting to Arceuus";
         ctx.game.tab(Game.Tab.MAGIC);
         SimpleWidget homeTeleport = ctx.widgets.getWidget(218, 143);//home teleport
@@ -483,11 +552,11 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
         ctx.game.tab(Game.Tab.INVENTORY);
     }
 
-    public static String currentTime() {
+    private static String currentTime() {
         return LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
     }
 
-    public String getPlayerName() {
+    private String getPlayerName() {
         if (playerGameName == null) {
             playerGameName = ctx.players.getLocal().getName();
         }
@@ -535,7 +604,13 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
             // Remove any text within angle brackets and trim
             senderName = senderName.replaceAll("<[^>]+>", "").trim();
 
-            if (senderName.contains(playerGameName)) {
+            if (senderName.contains(playerGameName) && !getEvent.getMessage().toLowerCase().contains("smashing")) {
+                ctx.updateStatus(currentTime() + " Someone asked from you");
+                ctx.updateStatus(currentTime() + " Stopping script");
+                ctx.stopScript();
+            }
+
+            if (!senderName.contains(playerGameName) && getEvent.getMessage().toLowerCase().contains(playerGameName.toLowerCase())) {
                 ctx.updateStatus(currentTime() + " Someone asked for you");
                 ctx.updateStatus(currentTime() + " Stopping script");
                 ctx.stopScript();
@@ -545,98 +620,94 @@ public class eMain extends TaskScript implements SkillListener, LoopingScript {
 
     @Override
     public void paint(Graphics g) {
-        if (playerState == State.MINING) {
-            Color PhilippineRed = new Color(196, 18, 48);
-            Color RaisinBlack = new Color(35, 31, 32, 127);
+        Point mousePos = ctx.mouse.getPoint();
+
+        if (mousePos != null) {
+            Rectangle paintRect = new Rectangle(5, 120, 225, 110);
+            hidePaint = paintRect.contains(mousePos.getLocation());
+        }
+
+        if (!hidePaint) {
+            // Settings for Paint
             g.setColor(RaisinBlack);
-            g.fillRoundRect(05, 120, 225, 110, 20, 20);
+            g.fillRoundRect(5, 120, 225, 110, 20, 20);
             g.setColor(PhilippineRed);
             g.drawRoundRect(5, 120, 225, 110, 20, 20);
             g.setColor(PhilippineRed);
             g.drawString("eRunecraftingBot by Esmaabi", 15, 135);
             g.setColor(Color.WHITE);
-            long runTime = System.currentTimeMillis() - this.startTime;
-            long currentSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.MINING);
-            long currentSkillLevel2 = this.ctx.skills.realLevel(SimpleSkills.Skills.CRAFTING);
-            long currentSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.MINING);
-            long currentSkillExp2 = this.ctx.skills.experience(SimpleSkills.Skills.CRAFTING);
-            long SkillLevelsGained = currentSkillLevel - this.startingSkillLevelMining;
-            long SkillLevelsGained2 = currentSkillLevel2 - this.startingSkillLevelCrafting;
-            long SkillExpGained = currentSkillExp - this.startingSkillExpMining;
-            long SkillExpGained2 = currentSkillExp2 - this.startingSkillExpCrafting;
-            long ExPGainedinSum = SkillExpGained + SkillExpGained2;
-            long SkillexpPhour = (int) ((ExPGainedinSum * 3600000D) / runTime);
-            long ThingsPerHour = (int) (denseEssence / ((System.currentTimeMillis() - this.startTime) / 3600000.0D));
-            g.drawString("Runtime: " + formatTime(runTime), 15, 150);
-            g.drawString("Starting: Mining " + this.startingSkillLevelMining + " (+" + SkillLevelsGained + ")," + " Crafting " + this.startingSkillLevelCrafting + " (+" + SkillLevelsGained2 + ")  ", 15, 165);
-            g.drawString("Current: Mining " + currentSkillLevel + ", Crafting " + currentSkillLevel2, 15, 180);
-            g.drawString("Exp gained: " + ExPGainedinSum + " (" + (SkillexpPhour / 1000L) + "k" + " xp/h)", 15, 195);
-            g.drawString("Dense mined: " + denseEssence + " (" + ThingsPerHour + " / h)", 15, 210);
+            String runTime = ctx.paint.formatTime(System.currentTimeMillis() - startTime);
+            g.drawString("Runtime: " + runTime, 15, 150);
             g.drawString("Status: " + status, 15, 225);
 
-        } else if (playerState == State.CRAFTING || playerState == State.BLOODCRAFTING || playerState == State.WAITING) {
-            Color PhilippineRed = new Color(196, 18, 48);
-            Color RaisinBlack = new Color(35, 31, 32, 127);
-            g.setColor(RaisinBlack);
-            g.fillRoundRect(5, 120, 250, 110, 20, 20);
-            g.setColor(PhilippineRed);
-            g.drawRoundRect(5, 120, 250, 110, 20, 20);
-            g.setColor(PhilippineRed);
-            g.drawString("eRunecraftingBot by Esmaabi", 15, 135);
-            g.setColor(Color.WHITE);
-            long runTime = System.currentTimeMillis() - this.startTime;
-            long currentSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.RUNECRAFT);
-            long currentSkillLevel2 = this.ctx.skills.realLevel(SimpleSkills.Skills.CRAFTING);
-            long currentSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.RUNECRAFT);
-            long currentSkillExp2 = this.ctx.skills.experience(SimpleSkills.Skills.CRAFTING);
-            long SkillLevelsGained = currentSkillLevel - this.startingSkillLevelRunecrafting;
-            long SkillLevelsGained2 = currentSkillLevel2 - this.startingSkillLevelCrafting;
-            long SkillExpGained = currentSkillExp - this.startingSkillExpRunecrafting;
-            long SkillExpGained2 = currentSkillExp2 - this.startingSkillExpCrafting;
-            long ExPGainedinSum = SkillExpGained + SkillExpGained2;
-            long SkillexpPhour = (int) ((ExPGainedinSum * 3600000D) / runTime);
-            long ThingsPerHour = (int) (darkBlocks / ((System.currentTimeMillis() - this.startTime) / 3600000.0D));
-            long ThingsPerHour2 = (int) (bloodRunes / ((System.currentTimeMillis() - this.startTime) / 3600000.0D));
-            g.drawString("Runtime: " + formatTime(runTime), 15, 150);
-            g.drawString("Starting: RuneCraft " + this.startingSkillLevelMining + " (+" + SkillLevelsGained + ")," + " Crafting " + this.startingSkillLevelCrafting + " (+" + SkillLevelsGained2 + ")", 15, 165);
-            g.drawString("Current: RuneCraft " + currentSkillLevel + ", Crafting " + currentSkillLevel2, 15, 180);
-            g.drawString("Exp gained: " + ExPGainedinSum + " (" + (SkillexpPhour / 1000L) + "k" + " xp/h)", 15, 195);
-            g.drawString("Made: Blocks " + darkBlocks + " (" + ThingsPerHour + " / h), Bloods " + bloodRunes + " (" + ThingsPerHour2 + " / h)", 15, 210);
-            g.drawString("Status: " + status, 15, 225);
+            // Settings for playerState
+            if (playerState == State.MINING) {
+                long SkillExpGained = miningXp - startingSkillExpMining;
+                long SkillExpGained2 = craftingXp - startingSkillExpCrafting;
+                long expGainedTotal = SkillExpGained + SkillExpGained2;
+                long totalExpPerHour = ctx.paint.valuePerHour((int) expGainedTotal, startTime);
+                long itemsPerHour = ctx.paint.valuePerHour(denseEssence, startTime);
+                g.drawString("Starting: Mining " + startingSkillLevelMining + " (+" + miningLvlGained + ")," + " Crafting " + startingSkillLevelCrafting + " (+" + craftingLvlGained + ")", 15, 165);
+                g.drawString("Current: Mining " + miningLvl + ", Crafting " + craftingLvl, 15, 180);
+                g.drawString("Exp gained: " + expGainedTotal + " (" + (totalExpPerHour / 1000L) + "k" + " xp/h)", 15, 195);
+                g.drawString("Dense mined: " + denseEssence + " (" + itemsPerHour + " / h)", 15, 210);
+
+            } else {
+                long SkillExpGained = runecraftingXp - startingSkillExpRunecrafting;
+                long SkillExpGained2 = craftingXp - startingSkillExpCrafting;
+                long expGainedTotal = SkillExpGained + SkillExpGained2;
+                long totalExpPerHour = ctx.paint.valuePerHour((int) expGainedTotal, startTime);
+                long itemsPerHour1 = ctx.paint.valuePerHour(darkBlocks, startTime);
+                long itemsPerHour2 = ctx.paint.valuePerHour(bloodRunes, startTime);
+                g.drawString("Starting: RuneCraft " + startingSkillLevelRunecrafting + " (+" + runecraftingLvlGained + ")," + " Crafting " + startingSkillLevelCrafting + " (+" + craftingLvlGained + ")", 15, 165);
+                g.drawString("Current: RuneCraft " + runecraftingLvl + ", Crafting " + craftingLvl, 15, 180);
+                g.drawString("Exp gained: " + expGainedTotal + " (" + (totalExpPerHour / 1000L) + "k" + " xp/h)", 15, 195);
+                g.drawString("Blocks: " + darkBlocks + " (" + itemsPerHour1 + " / h), Bloods: " + bloodRunes + " (" + itemsPerHour2 + " / h)", 15, 210);
+            }
         }
     }
 
-
-
     @Override
     public void skillLevelAdded(SimpleSkills.Skills skill, int current, int previous, int gained) {
-        //System.out.printf("We gained %d levels in %s, we went from +%d to %d", gained, skill.toString(), previous, current);
-        //levelsGained += gained;
+        //ctx.log("We gained %d levels in %s, we went from +%d to %d. ", gained, skill.toString(), previous, current);
+        if (skill == CRAFTING) {
+            craftingLvl = current;
+            craftingLvlGained = gained;
+        }
+
+        if (skill == RUNECRAFT) {
+            runecraftingLvl = current;
+            runecraftingLvlGained = gained;
+        }
+
+        if (skill == MINING) {
+            miningLvl = current;
+            miningLvlGained = gained;
+        }
 
     }
 
     @Override
     public void skillExperienceAdded(SimpleSkills.Skills skill, int current, int previous, int gained) {
-        //System.out.printf("We gained %d experience in %s, we went from +%d to %d", gained, skill.toString(), previous, current);
-        //experienceGained += gained;
+        //ctx.log("We gained %d experience in %s, we went from +%d to %d. ", gained, skill.toString(), previous, current);
+
+        if (skill == CRAFTING) {
+            craftingXp = current;
+        }
+
+        if (skill == RUNECRAFT) {
+            runecraftingXp = current;
+        }
+
+        if (skill == MINING) {
+            miningXp = current;
+        }
 
         if (playerState == State.MINING) {
-/*            int cached = ctx.inventory.populate().filter(13445).population();
-            if (cached > denseInInventory) {
-                denseEssence = cached - denseInInventory;
-            }*/
-            denseEssence++;
+            if (skill == CRAFTING) {
+                denseEssence++;
+            }
         }
-    }
-
-    private String formatTime(long ms) {
-        long s = ms / 1000L;
-        long m = s / 60L;
-        long h = m / 60L;
-        s %= 60L;
-        m %= 60L;
-        h %= 24L;
-        return String.format("%02d:%02d:%02d", h, m, s);
     }
 
 }

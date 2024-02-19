@@ -1,6 +1,5 @@
 package eFiremakingBotZenyte;
 
-import eRandomEventSolver.eRandomEventForester;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleBank;
@@ -11,9 +10,7 @@ import simple.hooks.scripts.ScriptManifest;
 import simple.hooks.scripts.task.Task;
 import simple.hooks.scripts.task.TaskScript;
 import simple.hooks.simplebot.ChatMessage;
-import simple.hooks.wrappers.SimpleItem;
-import simple.hooks.wrappers.SimpleNpc;
-import simple.hooks.wrappers.SimpleWidget;
+import simple.hooks.wrappers.*;
 
 import java.awt.*;
 import java.time.LocalTime;
@@ -24,56 +21,59 @@ import java.util.List;
 @ScriptManifest(author = "Esmaabi", category = Category.FIREMAKING, description =
         "<br>Most effective firemaking bot on Zenyte! <br><br><b>Features & recommendations:</b><br><br>" +
         "<ul>" +
-        "<li>You must start at chosen bank without logs in inventory;</li>" +
+        "<li>You must start near chosen bank!;</li>" +
         "<li>Supported locations: Falador East, Varrock East, Grand Exchange</li>" +
         "<li>Supported trees: all normal trees from redwood to logs.</li></ul>", discord = "Esmaabi#5752",
-        name = "eFiremakingBotZenyte", servers = { "Zenyte" }, version = "2.2")
+        name = "eFiremakingBotZenyte", servers = { "Zenyte" }, version = "3")
 
 public class eMain extends TaskScript implements LoopingScript {
-    private static eGui gui;
-    private long startTime = 0L;
-    private long startingSkillLevel;
-    private long startingSkillExp;
-    private int count;
-    private int currentExp;
-    static String status = null;
-    public static boolean botStarted = false;
-    public static boolean hidePaint = false;
-    private boolean FMStarted;
 
-    //Items
-    public static String woodName;
+    // Constants - Names
+    private static final String eBotName = "eFiremakingBot";
+    private static final String ePaintText = "Logs used";
     static String bankName = "Banker";
     static String bankOpen = "Bank";
     static String tinderBox = "Tinderbox";
     private static String playerGameName;
 
-
-
-    //Locations
+    // Constants - Locations
+    private static final SimpleSkills.Skills CHOSEN_SKILL = SimpleSkills.Skills.FIREMAKING;
     private WorldPoint START_TILE;
+    private final static int INVENTORY_BAG_WIDGET_ID = 548;
+    private final static int INVENTORY_BAG_CHILD_ID = 58;
     private final WorldPoint NEAR_BANK_LOC_VARROCK = new WorldPoint(3254, 3426, 0);
     private final WorldPoint NEAR_BANK_LOC_FALADOR = new WorldPoint(3012, 3360, 0);
     private final WorldPoint NEAR_BANK_LOC_GE = new WorldPoint(3164, 3487, 0);
-
-    //Paths
     private static final WorldPoint[] PATH_FALADOR_EAST = new WorldPoint[] {
             new WorldPoint(3025, 3361, 0),
             new WorldPoint(3025, 3362, 0),
             new WorldPoint(3025, 3363, 0)
     };
-
     private static final WorldPoint[] PATH_VARROCK_EAST = new WorldPoint[] {
             new WorldPoint(3266, 3428, 0),
             new WorldPoint(3266, 3429, 0),
             new WorldPoint(3266, 3430, 0)
     };
-
     private static final WorldPoint[] PATH_GRAND_EXCHANGE = new WorldPoint[] {
             new WorldPoint(3177, 3478, 0),
             new WorldPoint(3177, 3477, 0),
             new WorldPoint(3177, 3476, 0)
     };
+
+    // Variables
+    public static boolean botStarted = false;
+    private int count;
+    private int counter;
+    private int currentExp;
+    private boolean firemakingStarted;
+    private static eGui gui;
+    public static boolean hidePaint = false;
+    public static boolean firstInventory;
+    private int locationsTried = 0;
+    private long startTime = 0L;
+    private long startingSkillExp;
+    private long startingSkillLevel;
+    private static String status;
 
     @Override
     public int loopDuration() {
@@ -117,21 +117,27 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onExecute() {
-        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));
-        System.out.println("Started eFiremakingBot!");
+        tasks.addAll(Arrays.asList());
+        adjustViewportForFiremaking();
         initializeGUI();
+
+        ctx.log("-------------------------------------");
+        ctx.log("            " + eBotName + "         ");
+        ctx.log("-------------------------------------");
 
         status = "Setting up bot";
         this.startTime = System.currentTimeMillis(); //paint
-        this.startingSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.FIREMAKING);
-        this.startingSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING);
-        currentExp = this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING);// for actions counter by xp drop
+        this.startingSkillLevel = this.ctx.skills.realLevel(CHOSEN_SKILL);
+        this.startingSkillExp = this.ctx.skills.experience(CHOSEN_SKILL);
+        currentExp = this.ctx.skills.experience(CHOSEN_SKILL);// for actions counter by xp drop
         count = 0;
-        FMStarted = false;
+        counter = 0;
+        firemakingStarted = false;
         botStarted = false;
         hidePaint = false;
+        firstInventory = true;
 
-        //Getting FM starting tile from GUI selection
+        // Getting FM starting tile from GUI selection
         WorldPoint[] locationPaths = getSelectedLocationPaths(gui);
         START_TILE = locationPaths[0];
     }
@@ -142,49 +148,122 @@ public class eMain extends TaskScript implements LoopingScript {
 
         if (botStarted) {
 
+            if (ctx.pathing.energyLevel() > 30 && !ctx.pathing.running()) {
+                ctx.pathing.running(true);
+            }
+
             updateExperienceAndCount();
 
-            if (!FMStarted) {
-                if (logsInInventory()) {
-                    if (!ctx.players.getLocal().getLocation().equals(START_TILE)) {
-                        status = "Running to start location";
-                        ctx.pathing.step(START_TILE);
-                        ctx.sleepCondition(() -> ctx.players.getLocal().getLocation().equals(START_TILE), 2500);
-                    } else {
-                        FMStarted = true;
-                        System.out.println("Starting FM task?: " + FMStarted);
-                    }
-                } else {
+            WorldPoint[] availableLocations = getSelectedLocationPaths(gui);
+
+
+            if (!firemakingStarted) {
+                if (!logsInInventory() || firstInventory) {
                     bankTask();
                 }
+                adjustViewportForFiremaking();
+                findAvailableFireSpot(availableLocations);
+                handleFiremakingStart();
             } else {
-                ctx.viewport.angle(180);
-                ctx.viewport.pitch(true);
-
                 if (logsInInventory()) {
-                    if (ctx.players.getLocal().getAnimation() == -1) {
-                        SimpleItem tinderbox = ctx.inventory.populate().filter(tinderBox).next();
-                        SimpleItem woodInventory = ctx.inventory.populate().filter(woodName).next();
-
-                        if (tinderbox != null && woodInventory != null) {
-                            status = "Burning " + woodName.toLowerCase() + "...";
-                            tinderbox.click("Use");
-                            ctx.sleep(100);
-                            woodInventory.click(0);
-                            WorldPoint cached = ctx.players.getLocal().getLocation();
-                            ctx.sleepCondition(() -> ctx.players.getLocal().getLocation() != cached, 5000);
-                        }
-                    }
-
-                } else if (!logsInInventory() && !ctx.players.getLocal().isAnimating()) {
+                    lightFire();
+                } else if (playerIsIdle()) {
                     bankTask();
                 }
             }
         }
     }
 
+    //
+    private void findAvailableFireSpot(WorldPoint[] locations) {
+        SimpleObject fireOngoing = getFireAtLocation(START_TILE);
+
+        while (fireOngoing != null && locationsTried < locations.length) {
+            handleFireLightingLoc();
+            fireOngoing = getFireAtLocation(START_TILE);
+        }
+
+        if (locationsTried >= locations.length && fireOngoing != null) {
+            waitForAvailableSpot(locations);
+        }
+    }
+
+    private SimpleObject getFireAtLocation(WorldPoint location) {
+        return ctx.objects.populate()
+                .filter(o -> o.getLocation().equals(location))
+                .filter("Fire").next();
+    }
+
+    private void waitForAvailableSpot(WorldPoint[] locations) {
+        ctx.onCondition(() -> {
+            for (WorldPoint point : locations) {
+                if (getFireAtLocation(point) == null) {
+                    START_TILE = point;
+                    locationsTried = 0;
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
+    private void handleFiremakingStart() {
+        SimplePlayer localPlayer = ctx.players.getLocal();
+        if (localPlayer.getLocation().equals(START_TILE)) {
+            firemakingStarted = true;
+        } else {
+            moveToStartTile();
+        }
+    }
+
+    private void moveToStartTile() {
+        SimplePlayer localPlayer = ctx.players.getLocal();
+        final int DISTANCE_THRESHOLD = 3;
+        if (localPlayer.getLocation().distanceTo(START_TILE) > DISTANCE_THRESHOLD) {
+            if (ctx.pathing.reachable(START_TILE)) {
+                status = "Running to start location";
+                ctx.pathing.step(START_TILE);
+                ctx.onCondition(() -> true, 250, 10);
+            }
+        } else {
+            status = "Clicking starting tile";
+            ctx.pathing.clickSceneTile(START_TILE, false, true);
+            ctx.onCondition(() -> localPlayer.getLocation().equals(START_TILE));
+        }
+    }
+
+    private void adjustViewportForFiremaking() {
+        ctx.viewport.angle(180);
+        ctx.viewport.pitch(true);
+    }
+
+    private void lightFire() {
+        SimplePlayer localPlayer = ctx.players.getLocal();
+        final int IDLE_ANIMATION = -1;
+        if (localPlayer.getAnimation() == IDLE_ANIMATION) {
+            SimpleItem tinderbox = ctx.inventory.populate().filter(tinderBox).next();
+            SimpleItem woodInventory = ctx.inventory.populate().filter(eGui.getLogsComboBox()).next();
+
+            if (tinderbox != null && woodInventory != null) {
+                status = "Burning " + eGui.getLogsComboBox().toLowerCase() + "...";
+                clickOnBag();
+                tinderbox.click("Use");
+                ctx.sleep(50);
+                woodInventory.click(0);
+                WorldPoint cached = localPlayer.getLocation();
+                ctx.onCondition(() -> !localPlayer.getLocation().equals(cached), 250, 8);
+            }
+        }
+    }
+
+    private boolean playerIsIdle() {
+        SimplePlayer localPlayer = ctx.players.getLocal();
+        final int IDLE_ANIMATION = -1;
+        return !logsInInventory() && localPlayer.getAnimation() == IDLE_ANIMATION;
+    }
+
     private void updateExperienceAndCount() {
-        int newExp = this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING);
+        int newExp = this.ctx.skills.experience(CHOSEN_SKILL);
         if (currentExp != newExp) {
             count++;
             currentExp = newExp;
@@ -192,7 +271,7 @@ public class eMain extends TaskScript implements LoopingScript {
     }
 
     private boolean logsInInventory() {
-        return !ctx.inventory.populate().filter(woodName).isEmpty();
+        return !ctx.inventory.populate().filter(eGui.getLogsComboBox()).isEmpty();
     }
 
     private void bankTask() {
@@ -206,23 +285,24 @@ public class eMain extends TaskScript implements LoopingScript {
     private void approachBank() {
         SimpleNpc banker = ctx.npcs.populate().filter(bankName).nearest().next();
         WorldPoint nearBankTile = nearBankLocation(gui);
-        System.out.println("Near bank tile: " + nearBankTile);
+        //System.out.println("Near bank tile: " + nearBankTile);
 
         if (ctx.players.getLocal().getLocation().distanceTo(nearBankTile) > 10) {
             status = "Running to bank";
             ctx.pathing.step(nearBankTile);
-            ctx.sleepCondition(() -> !ctx.pathing.inMotion(), 1200);
+            ctx.onCondition(() -> ctx.pathing.inMotion(), 250, 10);
         } else {
             if (banker != null && banker.validateInteractable()) {
                 status = "Opening bank";
                 banker.click(bankOpen, bankName);
-                ctx.sleepCondition(() -> ctx.bank.bankOpen(), 3000);
+                ctx.onCondition(() -> ctx.bank.bankOpen(), 250, 12);
             }
         }
     }
 
     private void handleBanking() {
-        if (!logsInInventory()) {
+        if (!ctx.bank.bankOpen()) return;
+        if (ctx.bank.bankOpen()) {
             status = "Banking";
             ctx.bank.depositAllExcept(tinderBox);
             ctx.sleep(200);
@@ -253,7 +333,7 @@ public class eMain extends TaskScript implements LoopingScript {
     }
 
     private void withdrawTinderbox() {
-        System.out.println("Tinderbox not found in inventory. Withdrawing it.");
+        ctx.log("Tinderbox not found in inventory. Withdrawing it.");
         SimpleWidget quantityOne = ctx.widgets.getWidget(12, 29);
         if (quantityOne != null && !quantityOne.isHidden()) {
             quantityOne.click(0);
@@ -269,14 +349,16 @@ public class eMain extends TaskScript implements LoopingScript {
     }
 
     private void handleWoodWithdrawal() {
-        SimpleItem woodBank = ctx.bank.populate().filter(woodName).next();
+        SimpleItem woodBank = ctx.bank.populate().filter(eGui.getLogsComboBox()).next();
+        if (logsInInventory()) return;
         if (woodBank != null) {
-            ctx.bank.withdraw(woodName, SimpleBank.Amount.ALL);
+            status = "Found " + eGui.getLogsComboBox() + " in bank";
+            ctx.bank.withdraw(eGui.getLogsComboBox(), SimpleBank.Amount.ALL);
             ctx.onCondition(this::logsInInventory, 250, 10);
         } else {
-            status = "Out of " + woodName.toLowerCase();
+            status = "Out of " + eGui.getLogsComboBox().toLowerCase();
             ctx.updateStatus("Stopping script");
-            ctx.updateStatus("Out of " + woodName.toLowerCase());
+            ctx.updateStatus("Out of " + eGui.getLogsComboBox().toLowerCase());
             ctx.sleep(10000);
             ctx.stopScript();
         }
@@ -287,11 +369,8 @@ public class eMain extends TaskScript implements LoopingScript {
         status = "Closing bank";
         ctx.bank.closeBank();
         START_TILE = locationPaths[0];
-        FMStarted = false;
-        System.out.println("Bank closed");
-        System.out.println("Starting FM task?: " + FMStarted);
-        System.out.println("START_TILE has been set to: " + START_TILE);
-        ctx.viewport.angle(270);
+        firstInventory = false;
+        firemakingStarted = false;
     }
 
     public WorldPoint[] getSelectedLocationPaths(eGui gui) {
@@ -315,21 +394,32 @@ public class eMain extends TaskScript implements LoopingScript {
     }
 
     private void handleFireLightingLoc() {
-        String startingFmTask = "Starting FM task?: " + FMStarted;
         WorldPoint[] locationPaths = getSelectedLocationPaths(gui);
+        if (locationsTried >= locationPaths.length) {
+            ctx.log("All paths have been tried. Pausing...");
+            return;
+        }
 
         for (int i = 0; i < locationPaths.length; i++) {
             if (START_TILE.equals(locationPaths[i])) {
-                System.out.println("Can't light a fire here: " + START_TILE);
+                ctx.log("Firemaking path used, choosing next.");
                 START_TILE = locationPaths[(i + 1) % locationPaths.length];
+                locationsTried++;
                 break;
             }
         }
 
-        FMStarted = false;
-        System.out.println(startingFmTask);
-        System.out.println("Changing START_TILE to: " + START_TILE);
+        firemakingStarted = false;
     }
+
+    private void clickOnBag() {
+        SimpleWidget inventoryBagWidget = ctx.widgets.getWidget(INVENTORY_BAG_WIDGET_ID, INVENTORY_BAG_CHILD_ID);
+        if (inventoryBagWidget != null) {
+            inventoryBagWidget.click(0);
+        }
+    }
+
+
 
     public String getPlayerName() {
         if (playerGameName == null) {
@@ -351,6 +441,8 @@ public class eMain extends TaskScript implements LoopingScript {
 
     @Override
     public void onTerminate() {
+        this.count = 0;
+        this.counter = 0;
         this.startingSkillLevel = 0L;
         this.startingSkillExp = 0L;
         status = "Stopping bot";
@@ -369,14 +461,18 @@ public class eMain extends TaskScript implements LoopingScript {
         ChatMessageType getType = m.getType();
         net.runelite.api.events.ChatMessage getEvent = m.getChatEvent();
         playerGameName = getPlayerName();
-        String message = m.getMessage().toLowerCase();
+        String message = m.getMessage();
 
-        if (m.getMessage() == null) {
+        if (message == null) {
             return;
         }
 
-        if (message.contains("light a fire here")) {
-            handleFireLightingLoc();
+        if (message.toLowerCase().contains("light a fire here")) {
+            counter++;
+            if (counter >= 5) {
+                firemakingStarted = false;
+                counter = 0;
+            }
         }
 
         if (getType == ChatMessageType.PUBLICCHAT) {
@@ -413,15 +509,15 @@ public class eMain extends TaskScript implements LoopingScript {
         }
 
         // Get runtime and skill information
-        long runTime = System.currentTimeMillis() - this.startTime;
-        long currentSkillLevel = this.ctx.skills.realLevel(SimpleSkills.Skills.FIREMAKING);
-        long currentSkillExp = this.ctx.skills.experience(SimpleSkills.Skills.FIREMAKING);
+        String runTime = ctx.paint.formatTime(System.currentTimeMillis() - startTime);
+        long currentSkillLevel = this.ctx.skills.realLevel(CHOSEN_SKILL);
+        long currentSkillExp = this.ctx.skills.experience(CHOSEN_SKILL);
         long skillLevelsGained = currentSkillLevel - this.startingSkillLevel;
         long skillExpGained = currentSkillExp - this.startingSkillExp;
 
         // Calculate experience and actions per hour
-        long skillExpPerHour = skillExpGained * 3600000L / runTime;
-        long actionsPerHour = count * 3600000L / (System.currentTimeMillis() - this.startTime);
+        long skillExpPerHour = ctx.paint.valuePerHour((int) skillExpGained, startTime);
+        long actionsPerHour = ctx.paint.valuePerHour(count, startTime);
 
         // Set up colors
         Color philippineRed = new Color(196, 18, 48);
@@ -436,26 +532,15 @@ public class eMain extends TaskScript implements LoopingScript {
             g.drawRoundRect(5, 120, 200, 110, 20, 20);
 
             g.setColor(philippineRed);
-            g.drawString("eFiremakingBot by Esmaabi", 15, 135);
+            g.drawString(eBotName + " by Esmaabi", 15, 135);
             g.setColor(Color.WHITE);
-            g.drawString("Runtime: " + formatTime(runTime), 15, 150);
-            g.drawString("Skill Level: " + this.startingSkillLevel + " (+" + skillLevelsGained + "), started at " + currentSkillLevel, 15, 165);
+            g.drawString("Runtime: " + runTime, 15, 150);
+            g.drawString("Skill Level: " + currentSkillLevel + " (+" + skillLevelsGained + "), started at " + this.startingSkillLevel, 15, 165);
             g.drawString("Current Exp: " + currentSkillExp, 15, 180);
             g.drawString("Exp gained: " + skillExpGained + " (" + (skillExpPerHour / 1000L) + "k xp/h)", 15, 195);
-            g.drawString("Logs used: " + count + " (" + actionsPerHour + " per/h)", 15, 210);
+            g.drawString(ePaintText + ": " + count + " (" + actionsPerHour + " per/h)", 15, 210);
             g.drawString("Status: " + status, 15, 225);
-
         }
-    }
-
-    private String formatTime(long ms) {
-        long s = ms / 1000L;
-        long m = s / 60L;
-        long h = m / 60L;
-        s %= 60L;
-        m %= 60L;
-        h %= 24L;
-        return String.format("%02d:%02d:%02d", h, m, s);
     }
 
 }

@@ -1,6 +1,5 @@
 package eMortMyreFungusZenyte;
 
-import eRandomEventSolver.eRandomEventForester;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import simple.hooks.filters.SimpleBank;
@@ -52,13 +51,15 @@ public class eMain extends TaskScript implements LoopingScript {
     private static final int MORT_MYRE_FUNGUS_ID = 2970;
     private static final int SPIRITUAL_FAIRY_THEE_ID = 35003; //Ring-last-destination
     private static final int BANKER_ID = 10029;
-    private static final int BOX_OF_RESTORATION_ID = 35021; // Restore
+    private static final String BOX_OF_RESTORATION = "Box of Restoration"; // Restore
     private static String playerGameName;
+    public static final WorldArea EDGE_HOME_AREA = new WorldArea(new WorldPoint(3110, 3474, 0), new WorldPoint(3074, 3516, 0));
 
 
     // Coordinates
     private final WorldArea homeArea = new WorldArea(new WorldPoint(3101, 3181, 0), new WorldPoint(3074, 3504, 0));
     private final WorldArea swampArea = new WorldArea(new WorldPoint(3480,3449, 0), new WorldPoint(3417,3424, 0));
+    private final WorldArea altarArea = new WorldArea(new WorldPoint(2584, 3228, 0), new WorldPoint(2629, 3199, 0));
     private final WorldPoint bloomLocation = new WorldPoint(3431, 3433, 0);
     private final WorldPoint bankerLocation = new WorldPoint(3089, 3495, 0);
 
@@ -96,7 +97,7 @@ public class eMain extends TaskScript implements LoopingScript {
     @Override
     public void onExecute() {
 
-        tasks.addAll(Arrays.asList(new eRandomEventForester(ctx)));// Adds tasks to our {task} list for execution
+        tasks.addAll(Arrays.asList());// Adds tasks to our {task} list for execution
 
         // Other vars
         System.out.println("Started eMortMyreFungus!");
@@ -126,25 +127,23 @@ public class eMain extends TaskScript implements LoopingScript {
         }
 
         if (ctx.prayers.points() == 0) {
-            if (!ctx.pathing.inArea(homeArea)) {
-                teleportToHome();
-            } else {
-                inHome = true;
-            }
+            teleportToAltar();
         }
 
-        if (pathing.inArea(homeArea) || inHome) {
+        if (pathing.inArea(homeArea)) {
 
             if (playerReady()) {
                 teleportToSwamp();
             } else {
-                if (ctx.prayers.points() < prayerLevel) {
-                    restorePrayer();
-                }
+                openingBank();
+            }
+        }
 
-                if (!playerReady()) {
-                    openingBank();
-                }
+        if (pathing.inArea(altarArea)) {
+            if (ctx.prayers.points() < prayerLevel) {
+                restorePrayer();
+            } else {
+                teleportHomeSpellbook();
             }
         }
 
@@ -174,12 +173,12 @@ public class eMain extends TaskScript implements LoopingScript {
 
                     if (groundFungus != null && groundFungus.validateInteractable()) {
                         updateStatus("Picking up fungus");
-                        groundFungus.click("Take");
+                        groundFungus.menuAction("Take");
                     }
                 }
 
             } else {
-                teleportToHome();
+                teleportToAltar();
             }
         }
     }
@@ -191,7 +190,7 @@ public class eMain extends TaskScript implements LoopingScript {
             int fungiAmount = ctx.inventory.populate().filter(MORT_MYRE_FUNGUS_ID).population();
             count += fungiAmount;
             ctx.bank.depositAllExcept(SILVER_SICKLE_ID);
-            handleSickle();
+            handleSickleBank();
             updateStatus("Closing bank");
             ctx.bank.closeBank();
             return;
@@ -208,11 +207,11 @@ public class eMain extends TaskScript implements LoopingScript {
     }
 
     private boolean getSickleInventory() {
-        SimpleItem hammer = ctx.inventory.populate().filter(SILVER_SICKLE_ID).next();
-        return hammer != null;
+        SimpleItem silverSicle = ctx.inventory.populate().filter(SILVER_SICKLE_ID).next();
+        return silverSicle != null;
     }
 
-    private void handleSickle() {
+    private void handleSickleBank() {
         boolean sicleInInv = getSickleInventory();
         if (sicleInInv) {
             return;
@@ -249,21 +248,23 @@ public class eMain extends TaskScript implements LoopingScript {
     private void restorePrayer() {
         SimplePrayers getPrayPoints = ctx.prayers;
         updateStatus("Restoring prayer points");
-        SimpleObject restorBox = ctx.objects.populate().filter(BOX_OF_RESTORATION_ID).nearest().next();
+        SimpleObject restorBox = ctx.objects.populate().filter("Altar").nearest().next();
         if (restorBox != null && restorBox.validateInteractable()) {
-            restorBox.click("Restore");
+            ctx.pathing.step(2606, 3210);
             int prayerPoints = getPrayPoints.points();
-            ctx.sleepCondition(() -> prayerPoints == prayerLevel, randomSleeping(2000, 4000));
+            restorBox.menuAction("Pray-at");
+            ctx.sleepCondition(() -> prayerPoints == prayerLevel, randomSleeping(6000, 8000));
         }
     }
 
     // Mort Myre Swamp tasks
     private void castBloom() {
+        if (ctx.prayers.points() == 0) return;
         SimpleItem silverSicle = ctx.inventory.populate().filter(SILVER_SICKLE_ID).next();
         if (silverSicle != null && silverSicle.validateInteractable()) {
             updateStatus("Casting bloom");
             silverSicle.click(2);
-            ctx.onCondition(() -> !ctx.objects.populate().filter(FUNGI_ON_LOG_ID).isEmpty(), randomSleeping(1000, 3000));
+            ctx.onCondition(() -> ctx.objects.populate().filter(FUNGI_ON_LOG_ID).population() > 0, randomSleeping(1000, 2000));
         }
     }
 
@@ -271,8 +272,10 @@ public class eMain extends TaskScript implements LoopingScript {
         SimpleObject fungiOnLog = ctx.objects.populate().filter(FUNGI_ON_LOG_ID).next();
         updateStatus("Picking up fungi");
         if (fungiOnLog != null && fungiOnLog.validateInteractable()) {
-            fungiOnLog.click(1);
-            ctx.sleepCondition(() -> ctx.players.getLocal().getAnimation() != 827 && !ctx.pathing.inMotion(), randomSleeping(2000, 4000));
+            int funi = ctx.inventory.getFreeSlots();
+            fungiOnLog.menuAction("Pick");
+            //ctx.sleepCondition(() -> ctx.players.getLocal().getAnimation() != 827 && !ctx.pathing.inMotion(), randomSleeping(2000, 4000));
+            ctx.onCondition(() -> ctx.inventory.getFreeSlots() < funi, 200, 20);
         }
     }
 
@@ -296,15 +299,14 @@ public class eMain extends TaskScript implements LoopingScript {
 
 
     // Teleproting
-    public void teleportToHome() {
+    public void teleportToAltar() {
         updateStatus("Teleporting to Home");
-        ctx.game.tab(Game.Tab.MAGIC);
-        SimpleWidget homeTeleport = ctx.widgets.getWidget(218, 4); //home teleport normal spellbook
-        if (homeTeleport != null & !homeTeleport.isHidden()) {
-            homeTeleport.click(1); //Home, Zenyte Home Teleport
-            ctx.sleepCondition(() -> homeArea.containsPoint(ctx.players.getLocal().getLocation()), randomSleeping(9000, 12000));
+        ctx.game.tab(Game.Tab.EQUIPMENT);
+        SimpleItem cape = ctx.equipment.populate().filter(n -> n.getItemDefinitions().getName().toLowerCase().contains("ardougne cloak")).next();
+        if (cape != null) {
+            cape.click("Kandarin Monastery");
+            ctx.onCondition(() -> ctx.pathing.inArea(altarArea), 500, 5);
         }
-        ctx.game.tab(Game.Tab.INVENTORY);
     }
 
     public void teleportToSwamp() {
@@ -317,10 +319,54 @@ public class eMain extends TaskScript implements LoopingScript {
         SimpleObject spiritualTree = ctx.objects.populate().filter(SPIRITUAL_FAIRY_THEE_ID).next();
         if (spiritualTree != null && spiritualTree.validateInteractable()) {
             updateStatus("Clicking the Spiritual tree");
-            spiritualTree.click("Ring-last-destination", "Spiritual Fairy Tree");
+            spiritualTree.menuAction("Ring-last-destination");
             ctx.sleepCondition(() -> swampArea.containsPoint(ctx.players.getLocal().getLocation()), randomSleeping(9000, 12000));
         }
         ctx.game.tab(Game.Tab.INVENTORY);
+    }
+
+    public void teleportHomeSpellbook() {
+        if (ctx.pathing.inArea(EDGE_HOME_AREA)) return;
+
+        BotUtils.eActions.status = "Teleporting to home";
+        BotUtils.eActions.openTab(Game.Tab.MAGIC);
+
+        int widgetNumber;
+        switch (ctx.magic.spellBook()) {
+            case MODERN:
+                widgetNumber = 4;
+                ctx.log("Normal magic book");
+                break;
+            case LUNAR:
+                widgetNumber = 99;
+                ctx.log("Lunar magic book");
+                break;
+            case ANCIENT:
+                widgetNumber = 98;
+                ctx.log("Ancient magic book");
+                break;
+            case ARCEUUS:
+                widgetNumber = 143;
+                ctx.log("Areceuus magic book");
+                break;
+            default:
+                widgetNumber = -1;
+        }
+
+        if (widgetNumber != -1) {
+            ctx.log("Widget: 218, " + widgetNumber);
+            clickWidget(widgetNumber);
+        }
+
+        //ctx.onCondition(() -> ctx.players.getLocal().getGraphic() != -1 || ctx.pathing.inArea(EDGE_HOME_AREA), 500, 20);
+        ctx.sleepCondition(() -> !ctx.pathing.inArea(EDGE_HOME_AREA), randomSleeping(9000, 12000));
+        ctx.game.tab(Game.Tab.INVENTORY);
+    }
+
+    private void clickWidget(int childId) {
+        SimpleWidget widgetToClick = ctx.widgets.getWidget(218, childId);
+        if (widgetToClick == null) return;
+        widgetToClick.click(0);
     }
 
 
@@ -389,6 +435,7 @@ public class eMain extends TaskScript implements LoopingScript {
             }
         }
     }
+
 
     @Override
     public int loopDuration() {

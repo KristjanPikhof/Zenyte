@@ -9,7 +9,7 @@ public class eGui {
     public static Component f;
 
     public static void eGuiDialogueTarget() {
-        String[] smithingItems = {"Sword", "Platebody", "Dart tips"};
+        String[] smithingItems = {"Sword", "Platebody", "Dart tips", "Bolts"};
 
         ImageIcon eIcon = new ImageIcon(Objects.requireNonNull(eGui.class.getResource("Smithing_cape_logo.png")));
 
